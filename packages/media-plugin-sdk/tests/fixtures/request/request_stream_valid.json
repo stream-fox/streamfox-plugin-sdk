@@ -1,0 +1,11 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "mediaType": "movie",
+  "itemID": "tt123",
+  "videoID": "ep1",
+  "playback": {
+    "startPositionSeconds": 45,
+    "networkProfile": "wifi"
+  },
+  "experimental": []
+}

@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log*
+.DS_Store
+coverage
+*.tsbuildinfo
+packages/*/dist
+packages/*/.vite
+packages/*/ui/node_modules
+.idea
+package-lock.json

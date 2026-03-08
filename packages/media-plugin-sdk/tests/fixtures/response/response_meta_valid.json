@@ -1,0 +1,19 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "item": {
+    "summary": {
+      "id": {"namespace": "imdb", "value": "tt125"},
+      "mediaType": "movie",
+      "title": "Big Buck Bunny",
+      "genres": [],
+      "links": []
+    },
+    "videos": [
+      {
+        "id": "vid1",
+        "title": "Main video",
+        "streams": []
+      }
+    ]
+  }
+}

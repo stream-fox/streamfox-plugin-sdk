@@ -1,0 +1,11 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "plugins": [
+    {
+      "id": "com.example.a",
+      "name": "Example A",
+      "version": "1.0.0",
+      "pluginKinds": ["catalog", "meta"]
+    }
+  ]
+}

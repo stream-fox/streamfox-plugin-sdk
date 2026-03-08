@@ -1,0 +1,12 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "mediaType": "movie",
+  "itemID": "tt123",
+  "videoFingerprint": {
+    "hash": "abc123",
+    "size": 1234567,
+    "filename": "video.mkv"
+  },
+  "languagePreferences": ["en", "el"],
+  "experimental": []
+}

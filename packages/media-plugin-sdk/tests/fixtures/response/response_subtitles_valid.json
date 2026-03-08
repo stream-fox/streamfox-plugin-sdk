@@ -1,0 +1,10 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "subtitles": [
+    {
+      "id": "sub-en",
+      "url": "https://example.com/sub-en.srt",
+      "languageCode": "en"
+    }
+  ]
+}

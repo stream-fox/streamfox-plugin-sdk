@@ -1,0 +1,8 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "streams": [
+    {
+      "delivery": {"kind": "direct_url", "url": "https://cdn.example.com/video.mp4", "unknown": true}
+    }
+  ]
+}

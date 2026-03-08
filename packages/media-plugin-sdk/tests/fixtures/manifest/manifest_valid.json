@@ -1,0 +1,57 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "plugin": {
+    "id": "com.example.remote",
+    "name": "Example Remote",
+    "version": "1.0.0",
+    "description": "Example plugin"
+  },
+  "capabilities": [
+    {
+      "kind": "catalog",
+      "endpoints": [
+        {
+          "id": "top",
+          "name": "Top",
+          "mediaTypes": ["movie"],
+          "filters": [
+            {"key": "genre", "valueType": "string"},
+            {"key": "year", "valueType": "intRange", "isRequired": true}
+          ],
+          "sorts": [
+            {"key": "year", "directions": ["descending"]}
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "meta",
+      "mediaTypes": ["movie", "series"],
+      "includes": ["videos", "links"]
+    },
+    {
+      "kind": "stream",
+      "mediaTypes": ["movie"],
+      "deliveryKinds": ["direct_url", "torrent"],
+      "supportsProxyHeaders": true,
+      "supportsInlineSubtitles": true
+    },
+    {
+      "kind": "subtitles",
+      "mediaTypes": ["movie"],
+      "supportsHashLookup": true,
+      "defaultLanguages": ["en", "el"]
+    },
+    {
+      "kind": "plugin_catalog",
+      "endpoints": [
+        {
+          "id": "featured",
+          "name": "Featured",
+          "pluginKinds": ["catalog", "meta"],
+          "tags": ["official"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "streams": [
+    {
+      "delivery": {"kind": "youtube", "id": "yt123"},
+      "name": "YouTube"
+    }
+  ]
+}

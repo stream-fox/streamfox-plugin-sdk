@@ -1,0 +1,16 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "catalogID": "top",
+  "mediaType": "movie",
+  "filters": [
+    {
+      "key": "genre",
+      "value": {"kind": "int", "int": 1}
+    },
+    {
+      "key": "year",
+      "value": {"kind": "intRange", "intRange": {"min": 2010, "max": 2024}}
+    }
+  ],
+  "experimental": []
+}

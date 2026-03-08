@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 196 62% 98%;
+  --foreground: 198 42% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 198 42% 13%;
+  --primary: 190 71% 31%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 190 31% 92%;
+  --muted-foreground: 198 23% 35%;
+  --border: 194 30% 84%;
+  --input: 194 28% 82%;
+  --radius: 0.9rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Satoshi", "General Sans", "Avenir Next", "Segoe UI", sans-serif;
+  @apply bg-background text-foreground antialiased;
+}

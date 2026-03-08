@@ -1,0 +1,8 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "plugin": {"id": "com.example.remote", "name": "Example", "version": "1.0.0"},
+  "capabilities": [
+    {"kind": "meta", "mediaTypes": ["movie"]},
+    {"kind": "meta", "mediaTypes": ["series"]}
+  ]
+}

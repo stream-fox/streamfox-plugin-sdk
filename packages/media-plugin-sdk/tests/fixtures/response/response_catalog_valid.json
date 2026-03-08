@@ -1,0 +1,20 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "items": [
+    {
+      "id": {"namespace": "imdb", "value": "tt125"},
+      "mediaType": "movie",
+      "title": "Big Buck Bunny",
+      "year": 2008,
+      "poster": "https://example.com/poster.jpg",
+      "genres": ["Animation"],
+      "rating": "7.2",
+      "synopsis": "An animated short",
+      "links": []
+    }
+  ],
+  "cache": {
+    "maxAgeSeconds": 300,
+    "staleWhileRevalidateSeconds": 60
+  }
+}

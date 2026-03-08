@@ -1,0 +1,9 @@
+{
+  "schemaVersion": {"major": 2, "minor": 0},
+  "streams": [
+    {
+      "delivery": {"kind": "torrent", "infoHash": "abcdef", "fileIndex": 1},
+      "name": "Torrent"
+    }
+  ]
+}
