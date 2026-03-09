@@ -162,4 +162,32 @@ describe("definePlugin", () => {
     const body = await response.json();
     expect(body.error.code).toBe("REQUEST_INVALID");
   });
+
+  it("rejects malformed schemaVersion query parameter", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.schema-query-validation",
+        name: "Schema Query Validation",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({
+            item: null,
+          }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const malformed = encodeURIComponent(JSON.stringify({ major: 1 }));
+    const response = await app.request(`/meta?mediaType=movie&itemID=tt125&schemaVersion=${malformed}`);
+
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body.error.code).toBe("REQUEST_INVALID");
+    expect(body.error.message).toContain("schemaVersion");
+  });
 });

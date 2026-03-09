@@ -124,16 +124,45 @@ function parseSchemaVersionFromQuery(
   options: CreateServerOptions,
   traceId?: string,
 ): { major: number; minor: number } {
-  const explicit = parseJsonQueryParam<{ major?: number; minor?: number }>(searchParams, "schemaVersion", options, traceId);
-  if (explicit && typeof explicit.major === "number" && typeof explicit.minor === "number") {
+  const explicit = parseJsonQueryParam<unknown>(searchParams, "schemaVersion", options, traceId);
+  if (explicit !== undefined) {
+    if (!isRecord(explicit)) {
+      throw ProtocolError.requestInvalid("query parameter 'schemaVersion' must be a JSON object", { schemaVersion: explicit }, traceId);
+    }
+
+    const major = explicit.major;
+    const minor = explicit.minor;
+    if (
+      typeof major !== "number" ||
+      !Number.isInteger(major) ||
+      major < 0 ||
+      typeof minor !== "number" ||
+      !Number.isInteger(minor) ||
+      minor < 0
+    ) {
+      throw ProtocolError.requestInvalid(
+        "query parameter 'schemaVersion' must include non-negative integer major and minor fields",
+        { schemaVersion: explicit },
+        traceId,
+      );
+    }
+
     return {
-      major: explicit.major,
-      minor: explicit.minor,
+      major,
+      minor,
     };
   }
 
   const major = parseIntegerQueryValue(searchParams.get("schemaMajor"), "schemaMajor", traceId);
   const minor = parseIntegerQueryValue(searchParams.get("schemaMinor"), "schemaMinor", traceId);
+
+  if ((major !== undefined && major < 0) || (minor !== undefined && minor < 0)) {
+    throw ProtocolError.requestInvalid(
+      "query parameters 'schemaMajor' and 'schemaMinor' must be non-negative integers",
+      { schemaMajor: major, schemaMinor: minor },
+      traceId,
+    );
+  }
 
   if (major === undefined && minor === undefined) {
     return { ...SCHEMA_VERSION_CURRENT };
