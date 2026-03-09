@@ -5,7 +5,7 @@
 It provides:
 
 - `definePlugin(...)` for a low-boilerplate plugin definition flow.
-- Built-in HTTP hosting (`createServer`, `serve`) with schema-v2 validation.
+- Built-in HTTP hosting (`createServer`, `serve`) with schema-v1 validation.
 - Built-in installer UI (Stremio-style install/config page).
 - Typed settings field DSL (`settings.text`, `settings.password`, `settings.number`, `settings.checkbox`, `settings.select`, `settings.multiSelect`, `settings.textarea`).
 - Strict protocol validation aligned with `swift-media-plugin-kit`.
@@ -94,13 +94,13 @@ await serve(plugin, { port: 7000 });
 
 - `GET /manifest.json`
 - `GET /studio-config.json`
-- `POST /catalog`
-- `POST /meta`
-- `POST /stream`
-- `POST /subtitles`
-- `POST /plugin_catalog`
+- `GET /catalog`
+- `GET /meta`
+- `GET /stream`
+- `GET /subtitles`
+- `GET /plugin_catalog`
 
-All POST bodies are validated against schema v2 contracts.
+All resource requests are validated against schema v1 contracts.
 
 ## Settings Behavior
 

@@ -19,16 +19,16 @@ describe("definePlugin", () => {
       },
     });
 
-    expect(plugin.manifest.schemaVersion.major).toBe(2);
+    expect(plugin.manifest.schemaVersion.major).toBe(1);
     expect(plugin.manifest.capabilities).toHaveLength(1);
 
     const response = await plugin.handle("meta", {
-      schemaVersion: { major: 2, minor: 0 },
+      schemaVersion: { major: 1, minor: 0 },
       mediaType: "movie",
       itemID: "tt123",
     });
 
-    expect(response.schemaVersion.major).toBe(2);
+    expect(response.schemaVersion.major).toBe(1);
     expect(response.item).toBeNull();
   });
 
@@ -83,17 +83,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles?maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        schemaVersion: { major: 2, minor: 0 },
-        mediaType: "movie",
-        itemID: "tt125",
-      }),
-    });
+    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125&maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en");
 
     expect(response.status).toBe(200);
     expect(captured).toEqual({
@@ -129,17 +119,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        schemaVersion: { major: 2, minor: 0 },
-        mediaType: "movie",
-        itemID: "tt125",
-      }),
-    });
+    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125");
 
     expect(response.status).toBe(400);
 
@@ -175,17 +155,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles?languages=el&languages=de", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        schemaVersion: { major: 2, minor: 0 },
-        mediaType: "movie",
-        itemID: "tt125",
-      }),
-    });
+    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125&languages=el&languages=de");
 
     expect(response.status).toBe(400);
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": {"major": 2, "minor": 0},
+  "schemaVersion": {"major": 1, "minor": 0},
   "catalogID": "featured",
   "pluginKind": "catalog",
   "page": {"index": 0, "size": 25},

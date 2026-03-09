@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createPlugin, ProtocolError, type Manifest } from "../src/index";
 
 const manifest: Manifest = {
-  schemaVersion: { major: 2, minor: 0 },
+  schemaVersion: { major: 1, minor: 0 },
   plugin: { id: "com.example.test", name: "Test", version: "1.0.0" },
   capabilities: [{ kind: "meta", mediaTypes: ["movie"] }],
 };
@@ -17,8 +17,8 @@ describe("createPlugin", () => {
       createPlugin({
         manifest,
         handlers: {
-          meta: async () => ({ schemaVersion: { major: 2, minor: 0 }, item: null }),
-          stream: async () => ({ schemaVersion: { major: 2, minor: 0 }, streams: [] }),
+          meta: async () => ({ schemaVersion: { major: 1, minor: 0 }, item: null }),
+          stream: async () => ({ schemaVersion: { major: 1, minor: 0 }, streams: [] }),
         },
       }),
     ).toThrow(ProtocolError);
@@ -28,12 +28,12 @@ describe("createPlugin", () => {
     const plugin = createPlugin({
       manifest,
       handlers: {
-        meta: async () => ({ schemaVersion: { major: 2, minor: 0 }, item: null }),
+        meta: async () => ({ schemaVersion: { major: 1, minor: 0 }, item: null }),
       },
     });
 
     const response = await plugin.handle("meta", {
-      schemaVersion: { major: 2, minor: 0 },
+      schemaVersion: { major: 1, minor: 0 },
       mediaType: "movie",
       itemID: "tt123",
     });

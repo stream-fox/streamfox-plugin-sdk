@@ -10,7 +10,8 @@ import type { AnySettingField, InstallOptions, SettingPrimitive } from "./instal
 import { parseInstallSettings } from "./install";
 import type { MediaPlugin } from "./plugin";
 import { validateRequest, validateResponse } from "./validators";
-import type { ResourceKind, ResourceRequestMap } from "./types";
+import { SCHEMA_VERSION_CURRENT, type RequestPage, type RequestSort, type ResourceKind, type ResourceRequestMap } from "./types";
+import { isRecord } from "./utils";
 
 const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -70,6 +71,226 @@ function buildParseLimits(options: CreateServerOptions, traceId?: string): JsonP
     ...(options.maxDepth !== undefined ? { maxDepth: options.maxDepth } : {}),
     ...(traceId !== undefined ? { traceId } : {}),
   };
+}
+
+function parseOptionalString(value: string | null): string | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function parseIntegerQueryValue(value: string | null, key: string, traceId?: string): number | undefined {
+  if (value === null || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) {
+    throw ProtocolError.requestInvalid(`query parameter '${key}' must be an integer`, { key, value }, traceId);
+  }
+
+  return parsed;
+}
+
+function parseJsonQueryParam<T>(
+  searchParams: URLSearchParams,
+  key: string,
+  options: CreateServerOptions,
+  traceId?: string,
+): T | undefined {
+  const raw = searchParams.get(key);
+  if (!raw || raw.trim().length === 0) {
+    return undefined;
+  }
+
+  return parseJsonWithLimits<T>(raw, buildParseLimits(options, traceId));
+}
+
+function parseStringListQuery(searchParams: URLSearchParams, key: string): string[] | undefined {
+  const values = searchParams
+    .getAll(key)
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return values.length > 0 ? values : undefined;
+}
+
+function parseSchemaVersionFromQuery(
+  searchParams: URLSearchParams,
+  options: CreateServerOptions,
+  traceId?: string,
+): { major: number; minor: number } {
+  const explicit = parseJsonQueryParam<{ major?: number; minor?: number }>(searchParams, "schemaVersion", options, traceId);
+  if (explicit && typeof explicit.major === "number" && typeof explicit.minor === "number") {
+    return {
+      major: explicit.major,
+      minor: explicit.minor,
+    };
+  }
+
+  const major = parseIntegerQueryValue(searchParams.get("schemaMajor"), "schemaMajor", traceId);
+  const minor = parseIntegerQueryValue(searchParams.get("schemaMinor"), "schemaMinor", traceId);
+
+  if (major === undefined && minor === undefined) {
+    return { ...SCHEMA_VERSION_CURRENT };
+  }
+
+  return {
+    major: major ?? SCHEMA_VERSION_CURRENT.major,
+    minor: minor ?? SCHEMA_VERSION_CURRENT.minor,
+  };
+}
+
+function parsePageFromQuery(
+  searchParams: URLSearchParams,
+  options: CreateServerOptions,
+  traceId?: string,
+): RequestPage | undefined {
+  const page = parseJsonQueryParam<RequestPage>(searchParams, "page", options, traceId);
+  if (page) {
+    return page;
+  }
+
+  const index = parseIntegerQueryValue(searchParams.get("pageIndex"), "pageIndex", traceId);
+  const size = parseIntegerQueryValue(searchParams.get("pageSize"), "pageSize", traceId);
+  if (index === undefined && size === undefined) {
+    return undefined;
+  }
+
+  return {
+    index: index ?? 0,
+    ...(size !== undefined ? { size } : {}),
+  };
+}
+
+function parseSortFromQuery(
+  searchParams: URLSearchParams,
+  options: CreateServerOptions,
+  traceId?: string,
+): RequestSort | undefined {
+  const sort = parseJsonQueryParam<RequestSort>(searchParams, "sort", options, traceId);
+  if (sort) {
+    return sort;
+  }
+
+  const key = parseOptionalString(searchParams.get("sortKey"));
+  const direction = parseOptionalString(searchParams.get("sortDirection"));
+  if (!key && !direction) {
+    return undefined;
+  }
+
+  return {
+    key: key ?? "",
+    direction: (direction ?? "ascending") as RequestSort["direction"],
+  };
+}
+
+function parseRequestFromQuery<K extends ResourceKind>(
+  resource: K,
+  searchParams: URLSearchParams,
+  options: CreateServerOptions,
+  headerTraceId?: string,
+): ResourceRequestMap[K] {
+  const explicitRequest = parseOptionalString(searchParams.get("request"));
+  if (explicitRequest) {
+    const parsed = parseJsonWithLimits<unknown>(explicitRequest, buildParseLimits(options, headerTraceId));
+    if (!isRecord(parsed)) {
+      throw ProtocolError.requestInvalid("query parameter 'request' must be a JSON object", undefined, headerTraceId);
+    }
+    return parsed as ResourceRequestMap[K];
+  }
+
+  const schemaVersion = parseSchemaVersionFromQuery(searchParams, options, headerTraceId);
+  const parsedContext = parseJsonQueryParam<Record<string, unknown>>(searchParams, "context", options, headerTraceId) ?? {};
+  const queryTraceId = parseOptionalString(searchParams.get("traceID"));
+  if (queryTraceId) {
+    parsedContext.traceID = queryTraceId;
+  }
+
+  const context = Object.keys(parsedContext).length > 0 ? parsedContext : undefined;
+  const experimental = parseJsonQueryParam<unknown[]>(searchParams, "experimental", options, headerTraceId);
+
+  switch (resource) {
+    case "catalog": {
+      const query = parseOptionalString(searchParams.get("query"));
+      const page = parsePageFromQuery(searchParams, options, headerTraceId);
+      const sort = parseSortFromQuery(searchParams, options, headerTraceId);
+      const filters = parseJsonQueryParam<unknown[]>(searchParams, "filters", options, headerTraceId);
+
+      return {
+        schemaVersion,
+        catalogID: searchParams.get("catalogID") ?? "",
+        mediaType: searchParams.get("mediaType") ?? "",
+        ...(query !== undefined ? { query } : {}),
+        ...(page !== undefined ? { page } : {}),
+        ...(sort !== undefined ? { sort } : {}),
+        ...(filters !== undefined ? { filters } : {}),
+        ...(context !== undefined ? { context } : {}),
+        ...(experimental !== undefined ? { experimental } : {}),
+      } as ResourceRequestMap[K];
+    }
+    case "meta":
+      return {
+        schemaVersion,
+        mediaType: searchParams.get("mediaType") ?? "",
+        itemID: searchParams.get("itemID") ?? "",
+        ...(context !== undefined ? { context } : {}),
+        ...(experimental !== undefined ? { experimental } : {}),
+      } as ResourceRequestMap[K];
+    case "stream": {
+      const videoID = parseOptionalString(searchParams.get("videoID"));
+      const playback = parseJsonQueryParam<Record<string, unknown>>(searchParams, "playback", options, headerTraceId);
+
+      return {
+        schemaVersion,
+        mediaType: searchParams.get("mediaType") ?? "",
+        itemID: searchParams.get("itemID") ?? "",
+        ...(videoID !== undefined ? { videoID } : {}),
+        ...(playback !== undefined ? { playback } : {}),
+        ...(context !== undefined ? { context } : {}),
+        ...(experimental !== undefined ? { experimental } : {}),
+      } as ResourceRequestMap[K];
+    }
+    case "subtitles": {
+      const videoFingerprint = parseJsonQueryParam<Record<string, unknown>>(
+        searchParams,
+        "videoFingerprint",
+        options,
+        headerTraceId,
+      );
+      const languagePreferences = parseStringListQuery(searchParams, "languagePreferences");
+
+      return {
+        schemaVersion,
+        mediaType: searchParams.get("mediaType") ?? "",
+        itemID: searchParams.get("itemID") ?? "",
+        ...(videoFingerprint !== undefined ? { videoFingerprint } : {}),
+        ...(languagePreferences !== undefined ? { languagePreferences } : {}),
+        ...(context !== undefined ? { context } : {}),
+        ...(experimental !== undefined ? { experimental } : {}),
+      } as ResourceRequestMap[K];
+    }
+    case "plugin_catalog": {
+      const query = parseOptionalString(searchParams.get("query"));
+      const page = parsePageFromQuery(searchParams, options, headerTraceId);
+
+      return {
+        schemaVersion,
+        catalogID: searchParams.get("catalogID") ?? "",
+        pluginKind: searchParams.get("pluginKind") ?? "",
+        ...(query !== undefined ? { query } : {}),
+        ...(page !== undefined ? { page } : {}),
+        ...(context !== undefined ? { context } : {}),
+        ...(experimental !== undefined ? { experimental } : {}),
+      } as ResourceRequestMap[K];
+    }
+    default:
+      throw ProtocolError.requestInvalid(`Unsupported resource '${String(resource)}'`, undefined, headerTraceId);
+  }
 }
 
 function buildTraceId(headerTraceId: string | undefined, requestBody: unknown): string {
@@ -270,16 +491,15 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
   });
 
   for (const resource of resourcePaths) {
-    app.post(`${prefix}/${resource}`, async (context) => {
-      const rawBody = await context.req.text();
-      const parsedBody = parseJsonWithLimits<unknown>(rawBody || "{}", buildParseLimits(options));
-      const traceId = buildTraceId(context.req.header("x-trace-id"), parsedBody);
+    app.get(`${prefix}/${resource}`, async (context) => {
+      const searchParams = new URL(context.req.url).searchParams;
+      const request = parseRequestFromQuery(resource, searchParams, options, context.req.header("x-trace-id"));
+      const traceId = buildTraceId(context.req.header("x-trace-id"), request);
 
       context.header("x-trace-id", traceId);
 
-      const body = parsedBody as ResourceRequestMap[typeof resource];
-      const validRequest = validateRequest(resource, body, plugin.manifest, plugin.index, traceId);
-      const settings = parseInstallSettings(installer.fields, new URL(context.req.url).searchParams, traceId) as
+      const validRequest = validateRequest(resource, request, plugin.manifest, plugin.index, traceId);
+      const settings = parseInstallSettings(installer.fields, searchParams, traceId) as
         | Partial<TSettings>
         | undefined;
 

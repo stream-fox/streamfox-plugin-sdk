@@ -1,5 +1,5 @@
 export const SCHEMA_VERSION_CURRENT = {
-  major: 2,
+  major: 1,
   minor: 0,
 } as const;
 
