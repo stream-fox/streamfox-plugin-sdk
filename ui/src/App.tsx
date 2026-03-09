@@ -330,7 +330,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     void (async () => {
       try {
-        const configResponse = await fetch(new URL('studio-config.json', baseUrl));
+        const configResponse = await fetch(new URL('studio-config', baseUrl));
         const loadedConfig = (await configResponse.json()) as StudioConfig;
         setConfig(loadedConfig);
 
@@ -348,7 +348,7 @@ export function App(): JSX.Element {
   const fields = config?.installer?.fields ?? [];
 
   const configuredManifestUrl = useMemo(() => {
-    const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest.json';
+    const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest';
     const target = new URL(manifestPath, window.location.origin);
     const query = buildQuery(fields, values);
 
