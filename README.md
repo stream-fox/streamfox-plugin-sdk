@@ -157,7 +157,7 @@ Or subpath export:
 import { validateManifest, validateRequest, validateResponse } from "@streamhub/media-plugin-sdk/advanced";
 ```
 
-## Local Monorepo Development
+## Local Development
 
 ```bash
 npm install
@@ -165,4 +165,4 @@ npm run build
 npm test
 ```
 
-The CLI is now maintained as a standalone package/repo outside this monorepo.
+The CLI is maintained as a standalone package/repo (`create-media-plugin`).

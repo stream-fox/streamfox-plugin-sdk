@@ -3,8 +3,7 @@ npm-debug.log*
 .DS_Store
 coverage
 *.tsbuildinfo
-packages/*/dist
-packages/*/.vite
-packages/*/ui/node_modules
+dist
+.vite
+ui/node_modules
 .idea
-package-lock.json

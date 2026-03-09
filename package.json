@@ -1,22 +1,59 @@
 {
-  "name": "media-plugin-sdk-node",
-  "private": true,
+  "name": "@streamhub/media-plugin-sdk",
   "version": "0.1.0",
-  "description": "Monorepo for StreamHub media plugin SDK",
-  "workspaces": [
-    "packages/*"
-  ],
-  "engines": {
-    "node": ">=24"
+  "description": "Unified Node SDK for StreamHub media plugins",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./advanced": {
+      "types": "./dist/advanced.d.ts",
+      "import": "./dist/advanced.js",
+      "require": "./dist/advanced.cjs"
+    }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "build": "npm run build:ui && tsup",
+    "build:ui": "vite build --config ui/vite.config.ts",
+    "dev:ui": "vite --config ui/vite.config.ts",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:module-smoke": "npm run build && node ./scripts/module-smoke.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.9.8"
   },
   "devDependencies": {
-    "@types/node": "^25.3.5",
-    "typescript": "^5.9.3"
+    "@types/node": "^24.6.0",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "postcss": "^8.5.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^3.4.17",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vite": "^5.4.20",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
