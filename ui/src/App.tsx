@@ -8,6 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 
 type InstallerFieldType = 'text' | 'password' | 'number' | 'checkbox' | 'select' | 'multi_select' | 'textarea';
 type FormValue = string | boolean | string[];
+type ThemePreference = 'system' | 'light' | 'dark';
+type ResolvedTheme = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'streamfox.installer.theme';
 
 interface InstallerFieldOption {
   label: string;
@@ -38,6 +42,11 @@ interface Manifest {
     version: string;
     description?: string;
     logo?: string;
+    homepage?: string;
+    author?: {
+      name: string;
+      website?: string;
+    };
   };
   capabilities: Array<{ kind: string }>;
 }
@@ -54,6 +63,8 @@ interface StudioConfig {
     title: string;
     subtitle: string;
     description: string;
+    logo?: string;
+    background?: string;
     installButtonText: string;
     openManifestButtonText: string;
     copyManifestButtonText: string;
@@ -64,6 +75,23 @@ interface StudioConfig {
 function makeBaseUrl(): URL {
   const pathname = window.location.pathname.endsWith('/') ? window.location.pathname : `${window.location.pathname}/`;
   return new URL(pathname, window.location.origin);
+}
+
+function readStoredTheme(): ThemePreference {
+  if (typeof window === 'undefined') {
+    return 'system';
+  }
+
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+}
+
+function getSystemTheme(): ResolvedTheme {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function toCheckboxValue(rawValue: string | null, defaultValue: boolean): boolean {
@@ -181,10 +209,7 @@ function MultiSelectDropdown({
           return true;
         }
 
-        return (
-          option.label.toLowerCase().includes(queryText) ||
-          option.value.toLowerCase().includes(queryText)
-        );
+        return option.label.toLowerCase().includes(queryText) || option.value.toLowerCase().includes(queryText);
       }),
     [options, queryText],
   );
@@ -204,32 +229,24 @@ function MultiSelectDropdown({
   };
 
   const preview =
-    selected.length === 0
-      ? 'Select options'
-      : selected.length <= 3
-        ? selected.join(', ')
-        : `${selected.length} selected`;
+    selected.length === 0 ? 'Select options' : selected.length <= 3 ? selected.join(', ') : `${selected.length} selected`;
 
   return (
-    <details className="rounded-xl border border-border bg-card p-3">
+    <details className="rounded-2xl border border-border/80 bg-card/80 p-3 shadow-[0_12px_28px_rgba(15,23,42,0.08)] backdrop-blur">
       <summary className="cursor-pointer list-none text-sm font-medium text-foreground">{preview}</summary>
       <div className="mt-3 space-y-3">
         {field.searchable !== false ? (
-          <Input
-            value={query}
-            placeholder="Search options..."
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <Input value={query} placeholder="Search options..." onChange={(event) => setQuery(event.target.value)} />
         ) : null}
 
-        <div className="max-h-52 space-y-1 overflow-auto rounded-lg border border-border bg-muted/30 p-2">
+        <div className="max-h-52 space-y-1 overflow-auto rounded-xl border border-border/80 bg-muted/35 p-2">
           {filtered.length === 0 ? (
             <p className="px-2 py-3 text-xs text-muted-foreground">No options match your search.</p>
           ) : (
             filtered.map((option) => {
               const checked = selected.includes(option.value);
               return (
-                <label key={option.value} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/60">
+                <label key={option.value} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/70">
                   <input
                     type="checkbox"
                     checked={checked}
@@ -253,16 +270,12 @@ function MultiSelectDropdown({
   );
 }
 
-function renderField(
-  field: InstallerField,
-  value: FormValue,
-  onChange: (next: FormValue) => void,
-): JSX.Element {
+function renderField(field: InstallerField, value: FormValue, onChange: (next: FormValue) => void): JSX.Element {
   const fieldType = field.type ?? 'text';
 
   if (fieldType === 'checkbox') {
     return (
-      <label className="flex items-center gap-3 rounded-xl border border-border bg-muted/45 px-3 py-3">
+      <label className="flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/45 px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
         <input
           type="checkbox"
           checked={value === true}
@@ -277,7 +290,7 @@ function renderField(
   if (fieldType === 'textarea') {
     return (
       <Textarea
-        className="min-h-[96px]"
+        className="min-h-[108px]"
         value={typeof value === 'string' ? value : ''}
         placeholder={field.placeholder}
         onChange={(event) => onChange(event.target.value)}
@@ -287,10 +300,7 @@ function renderField(
 
   if (fieldType === 'select') {
     return (
-      <Select
-        value={typeof value === 'string' ? value : ''}
-        onChange={(event) => onChange(event.target.value)}
-      >
+      <Select value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select option</option>
         {(field.options ?? []).map((option) => (
           <option key={option.value} value={option.value}>
@@ -324,17 +334,44 @@ export function App(): JSX.Element {
   const [values, setValues] = useState<Record<string, FormValue>>({});
   const [errorText, setErrorText] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<string | null>(null);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredTheme);
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
 
   const baseUrl = useMemo(makeBaseUrl, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const sync = (event?: MediaQueryListEvent): void => {
+      setSystemTheme(event?.matches ?? media.matches ? 'dark' : 'light');
+    };
+
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, themePreference);
+    const resolved = themePreference === 'system' ? systemTheme : themePreference;
+    document.documentElement.classList.toggle('dark', resolved === 'dark');
+  }, [systemTheme, themePreference]);
 
   useEffect(() => {
     void (async () => {
       try {
         const configResponse = await fetch(new URL('studio-config', baseUrl));
+        if (!configResponse.ok) {
+          throw new Error(`Failed to load installer config (${configResponse.status})`);
+        }
+
         const loadedConfig = (await configResponse.json()) as StudioConfig;
         setConfig(loadedConfig);
 
         const manifestResponse = await fetch(loadedConfig.manifestPath);
+        if (!manifestResponse.ok) {
+          throw new Error(`Failed to load manifest (${manifestResponse.status})`);
+        }
+
         const loadedManifest = (await manifestResponse.json()) as Manifest;
         setManifest(loadedManifest);
 
@@ -346,6 +383,14 @@ export function App(): JSX.Element {
   }, [baseUrl]);
 
   const fields = config?.installer?.fields ?? [];
+  const activeTheme = themePreference === 'system' ? systemTheme : themePreference;
+  const installerTitle = config?.installer.title ?? manifest?.plugin.name ?? 'Plugin Installer';
+  const installerDescription =
+    config?.installer.description ?? manifest?.plugin.description ?? 'Configure this plugin before installation.';
+  const installerSubtitle = config?.installer.subtitle ?? '';
+  const pluginVersion = manifest?.plugin.version ?? config?.installer.subtitle ?? '1.0.0';
+  const brandingLogo = config?.installer.logo ?? manifest?.plugin.logo ?? null;
+  const backgroundImage = config?.installer.background ?? null;
 
   const configuredManifestUrl = useMemo(() => {
     const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest';
@@ -368,6 +413,26 @@ export function App(): JSX.Element {
     return `${scheme}://${window.location.host}${configuredManifestUrl.pathname}${configuredManifestUrl.search}`;
   }, [config, configuredManifestUrl]);
 
+  const capabilityKinds = useMemo(
+    () => (manifest?.capabilities ?? []).map((capability) => capability.kind.replace('_', ' ')),
+    [manifest],
+  );
+
+  const pageStyle = useMemo(() => {
+    const overlay =
+      activeTheme === 'dark'
+        ? 'linear-gradient(135deg, rgba(4, 10, 17, 0.88), rgba(7, 19, 32, 0.74))'
+        : 'linear-gradient(135deg, rgba(243, 251, 252, 0.92), rgba(226, 240, 244, 0.84))';
+
+    return backgroundImage
+      ? {
+          backgroundImage: `${overlay}, url(${JSON.stringify(backgroundImage).slice(1, -1)})`,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }
+      : undefined;
+  }, [activeTheme, backgroundImage]);
+
   const onFieldChange = (key: string, nextValue: FormValue): void => {
     setValues((previous) => ({
       ...previous,
@@ -387,83 +452,218 @@ export function App(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#f4fbfc] via-[#e9f6f8] to-[#e4efee] px-4 py-8 text-foreground sm:px-8">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.15fr_1fr]">
-        <Card className="shadow-glow">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>{config?.installer.title ?? manifest?.plugin.name ?? 'Plugin Installer'}</CardTitle>
-              <Badge>v{manifest?.plugin.version ?? config?.installer.subtitle ?? '1.0.0'}</Badge>
-            </div>
-            <CardDescription>
-              {config?.installer.description ?? manifest?.plugin.description ?? 'Configure this add-on before installation.'}
-            </CardDescription>
-            <div className="flex flex-wrap gap-2 pt-2">
-              {(manifest?.capabilities ?? []).map((capability) => (
-                <Badge key={capability.kind}>{capability.kind}</Badge>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              {installHref ? (
-                <a href={installHref}>
-                  <Button variant="default" size="sm">{config?.installer.installButtonText ?? 'Install Addon'}</Button>
-                </a>
-              ) : null}
-              <a href={configuredManifestUrl.toString()} target="_blank" rel="noreferrer">
-                <Button variant="secondary" size="sm">{config?.installer.openManifestButtonText ?? 'Open Manifest'}</Button>
-              </a>
-              <Button variant="secondary" size="sm" onClick={() => void copyManifest()}>
-                {config?.installer.copyManifestButtonText ?? 'Copy Manifest URL'}
-              </Button>
-            </div>
-            {copyState ? <p className="pt-1 text-xs text-muted-foreground">{copyState}</p> : null}
-          </CardHeader>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(67,156,181,0.18),transparent_42%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)))] px-4 py-6 text-foreground sm:px-8 sm:py-8">
+      <div
+        className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] border border-border/70 bg-background/80 shadow-[0_36px_96px_rgba(9,23,38,0.18)] backdrop-blur-xl"
+        style={pageStyle}
+      >
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]" />
 
-          <CardContent className="space-y-4">
-            {fields.length === 0 ? (
-              <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                No configuration fields are required for this add-on.
-              </div>
-            ) : (
-              fields.map((field) => (
-                <div key={field.key} className="space-y-2">
-                  {field.type !== 'checkbox' ? (
-                    <label className="text-sm font-medium">
-                      {field.label}
-                      {field.required ? <span className="text-[#0f7a8b]"> *</span> : null}
-                    </label>
-                  ) : null}
+        <div className="relative z-10 p-5 sm:p-8 lg:p-10">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">StreamFox Installer</p>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{installerTitle}</h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{installerDescription}</p>
+            </div>
 
-                  {renderField(field, values[field.key] ?? '', (nextValue) => onFieldChange(field.key, nextValue))}
+            <div className="inline-flex rounded-full border border-border/80 bg-card/80 p-1 shadow-[0_16px_32px_rgba(9,23,38,0.08)] backdrop-blur">
+              {(['system', 'light', 'dark'] as const).map((option) => {
+                const selected = themePreference === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setThemePreference(option)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                      selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                  {field.description ? <p className="text-xs text-muted-foreground">{field.description}</p> : null}
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+            <Card className="overflow-hidden border-border/80 bg-card/82 shadow-[0_24px_60px_rgba(9,23,38,0.14)] backdrop-blur-xl">
+              <CardHeader className="space-y-5 border-b border-border/70 pb-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-background/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                      {brandingLogo ? (
+                        <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-semibold text-primary">SF</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CardTitle className="text-2xl">{manifest?.plugin.name ?? installerTitle}</CardTitle>
+                        <Badge className="bg-primary/10 text-primary dark:bg-primary/15">v{pluginVersion}</Badge>
+                      </div>
+
+                      {installerSubtitle && installerSubtitle !== pluginVersion ? (
+                        <p className="text-sm font-medium text-muted-foreground">{installerSubtitle}</p>
+                      ) : null}
+
+                      <CardDescription className="max-w-2xl text-sm leading-6">
+                        {manifest?.plugin.description ?? installerDescription}
+                      </CardDescription>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {installHref ? (
+                      <a href={installHref}>
+                        <Button variant="default" size="sm">{config?.installer.installButtonText ?? 'Install Plugin'}</Button>
+                      </a>
+                    ) : null}
+                    <a href={configuredManifestUrl.toString()} target="_blank" rel="noreferrer">
+                      <Button variant="secondary" size="sm">{config?.installer.openManifestButtonText ?? 'Open Manifest'}</Button>
+                    </a>
+                    <Button variant="secondary" size="sm" onClick={() => void copyManifest()}>
+                      {config?.installer.copyManifestButtonText ?? 'Copy Manifest URL'}
+                    </Button>
+                  </div>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="shadow-glow">
-          <CardHeader>
-            <CardTitle>Install Preview</CardTitle>
-            <CardDescription>The generated URL below is what your app will install and call.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Manifest URL</p>
-              <Textarea readOnly className="min-h-[132px] font-mono text-xs" value={configuredManifestUrl.toString()} />
+                <div className="flex flex-wrap gap-2">
+                  {capabilityKinds.map((kind) => (
+                    <Badge key={kind}>{kind}</Badge>
+                  ))}
+                </div>
+
+                {copyState ? <p className="text-xs text-muted-foreground">{copyState}</p> : null}
+                {errorText ? (
+                  <div className="rounded-2xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+                    {errorText}
+                  </div>
+                ) : null}
+              </CardHeader>
+
+              <CardContent className="space-y-5 pt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Configuration</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {fields.length === 0 ? 'This plugin installs without extra configuration.' : 'Adjust the settings that should be encoded into the manifest URL.'}
+                    </p>
+                  </div>
+                  <Badge>{fields.length} field{fields.length === 1 ? '' : 's'}</Badge>
+                </div>
+
+                {fields.length === 0 ? (
+                  <div className="rounded-2xl border border-border/80 bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+                    No configuration fields are required for this plugin.
+                  </div>
+                ) : (
+                  fields.map((field) => (
+                    <div key={field.key} className="space-y-2.5">
+                      {field.type !== 'checkbox' ? (
+                        <label className="text-sm font-medium">
+                          {field.label}
+                          {field.required ? <span className="text-primary"> *</span> : null}
+                        </label>
+                      ) : null}
+
+                      {renderField(field, values[field.key] ?? '', (nextValue) => onFieldChange(field.key, nextValue))}
+
+                      {field.description ? <p className="text-xs leading-5 text-muted-foreground">{field.description}</p> : null}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="overflow-hidden border-border/80 bg-card/78 shadow-[0_24px_60px_rgba(9,23,38,0.14)] backdrop-blur-xl">
+                <CardHeader className="space-y-5">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Plugin Summary</p>
+                    <CardTitle className="text-xl">Installation snapshot</CardTitle>
+                    <CardDescription>
+                      Branded summary for what the client will install, with raw links available only when needed.
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-5">
+                  <div className="rounded-[24px] border border-border/70 bg-background/75 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-card">
+                        {brandingLogo ? (
+                          <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xl font-semibold text-primary">SF</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate text-lg font-semibold">{manifest?.plugin.name ?? installerTitle}</p>
+                        <p className="truncate text-sm text-muted-foreground">{manifest?.plugin.id ?? 'Loading plugin id...'}</p>
+                        <p className="text-sm text-muted-foreground">Version {pluginVersion}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <dl className="space-y-3 rounded-[24px] border border-border/70 bg-muted/20 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <dt className="text-sm text-muted-foreground">Theme</dt>
+                      <dd className="text-right text-sm font-medium capitalize">{themePreference === 'system' ? `system (${systemTheme})` : activeTheme}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <dt className="text-sm text-muted-foreground">Deeplink</dt>
+                      <dd className="text-right text-sm font-medium">{installHref ? config?.deeplink.scheme ?? 'stremio' : 'disabled'}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <dt className="text-sm text-muted-foreground">Capabilities</dt>
+                      <dd className="text-right text-sm font-medium">{capabilityKinds.length > 0 ? capabilityKinds.join(', ') : 'Loading...'}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <dt className="text-sm text-muted-foreground">Settings</dt>
+                      <dd className="text-right text-sm font-medium">{fields.length === 0 ? 'none' : `${fields.length} configurable`}</dd>
+                    </div>
+                    {manifest?.plugin.author?.name ? (
+                      <div className="flex items-start justify-between gap-3">
+                        <dt className="text-sm text-muted-foreground">Author</dt>
+                        <dd className="text-right text-sm font-medium">{manifest.plugin.author.name}</dd>
+                      </div>
+                    ) : null}
+                    {manifest?.plugin.homepage ? (
+                      <div className="flex items-start justify-between gap-3">
+                        <dt className="text-sm text-muted-foreground">Homepage</dt>
+                        <dd className="text-right text-sm font-medium">
+                          <a href={manifest.plugin.homepage} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                            Open
+                          </a>
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+
+                  <details className="group rounded-[24px] border border-border/70 bg-card/70 p-4">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
+                      Advanced install details
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Manifest URL</p>
+                        <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={configuredManifestUrl.toString()} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Deep Link</p>
+                        <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={installHref ?? 'Deeplink is disabled'} />
+                      </div>
+                    </div>
+                  </details>
+                </CardContent>
+              </Card>
             </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Deep Link</p>
-              <Textarea readOnly className="min-h-[132px] font-mono text-xs" value={installHref ?? 'Deeplink is disabled'} />
-            </div>
-
-            {errorText ? (
-              <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">{errorText}</div>
-            ) : null}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </main>
   );

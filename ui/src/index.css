@@ -16,6 +16,19 @@
   --radius: 0.9rem;
 }
 
+.dark {
+  --background: 208 43% 8%;
+  --foreground: 198 36% 93%;
+  --card: 208 39% 11%;
+  --card-foreground: 198 36% 93%;
+  --primary: 188 72% 48%;
+  --primary-foreground: 208 43% 8%;
+  --muted: 206 28% 18%;
+  --muted-foreground: 198 18% 68%;
+  --border: 207 26% 24%;
+  --input: 207 26% 25%;
+}
+
 * {
   @apply border-border;
 }
@@ -24,5 +37,5 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: "Satoshi", "General Sans", "Avenir Next", "Segoe UI", sans-serif;
-  @apply bg-background text-foreground antialiased;
+  @apply bg-background text-foreground antialiased transition-colors duration-300;
 }

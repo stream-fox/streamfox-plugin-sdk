@@ -268,6 +268,59 @@ describe("definePlugin", () => {
     expect((await app.request("/plugin_catalog/featured")).status).toBe(404);
   });
 
+  it("includes installer branding values in studio config", async () => {
+    const pluginWithFallbackLogo = definePlugin({
+      plugin: {
+        id: "com.example.branding-fallback",
+        name: "Branding Fallback",
+        version: "1.0.0",
+        logo: "https://cdn.example.com/plugin-logo.png",
+      },
+      install: {
+        background: "https://cdn.example.com/installer-bg.jpg",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const appWithFallbackLogo = createServer(pluginWithFallbackLogo, { frontend: false });
+    const fallbackResponse = await appWithFallbackLogo.request("/studio-config");
+    const fallbackBody = await fallbackResponse.json();
+
+    expect(fallbackResponse.status).toBe(200);
+    expect(fallbackBody.installer.logo).toBe("https://cdn.example.com/plugin-logo.png");
+    expect(fallbackBody.installer.background).toBe("https://cdn.example.com/installer-bg.jpg");
+
+    const pluginWithOverrideLogo = definePlugin({
+      plugin: {
+        id: "com.example.branding-override",
+        name: "Branding Override",
+        version: "1.0.0",
+        logo: "https://cdn.example.com/plugin-logo.png",
+      },
+      install: {
+        logo: "https://cdn.example.com/installer-logo.png",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const appWithOverrideLogo = createServer(pluginWithOverrideLogo, { frontend: false });
+    const overrideResponse = await appWithOverrideLogo.request("/studio-config");
+    const overrideBody = await overrideResponse.json();
+
+    expect(overrideResponse.status).toBe(200);
+    expect(overrideBody.installer.logo).toBe("https://cdn.example.com/installer-logo.png");
+  });
+
   it("prefers path identifiers over equivalent query values", async () => {
     let captured:
       | {

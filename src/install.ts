@@ -88,6 +88,8 @@ export interface InstallOptions<TFields extends readonly AnySettingField[] = rea
   title?: string;
   subtitle?: string;
   description?: string;
+  logo?: string;
+  background?: string;
   installButtonText?: string;
   openManifestButtonText?: string;
   copyManifestButtonText?: string;

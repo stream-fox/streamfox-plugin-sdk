@@ -32,6 +32,8 @@ const plugin = definePlugin({
   },
   install: {
     title: "Subtitle Settings",
+    logo: "https://cdn.example.com/subtitles-logo.png",
+    background: "https://cdn.example.com/subtitles-bg.jpg",
     fields: [
       settings.text("languages", { defaultValue: "en,el", placeholder: "en,el" }),
       settings.checkbox("includeHI", { defaultValue: true }),
@@ -115,6 +117,15 @@ Installer/settings values are read from request query params and parsed before h
 - `multiSelect` fields are parsed as string arrays (supports repeated query keys and comma-separated values).
 
 In handlers, read values from `context.settings`.
+
+## Installer Branding
+
+`install.logo` and `install.background` let you brand the built-in installer UI:
+
+- `logo`: icon/logo image URL shown in the installer card
+- `background`: full-page background image URL (rendered with an overlay for readability)
+
+If `install.logo` is omitted, the UI falls back to `manifest.plugin.logo` when present.
 
 ## HTTPS and Deeplinks
 

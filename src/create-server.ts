@@ -59,6 +59,8 @@ interface NormalizedInstaller {
   title: string;
   subtitle: string;
   description: string;
+  logo?: string;
+  background?: string;
   installButtonText: string;
   openManifestButtonText: string;
   copyManifestButtonText: string;
@@ -466,6 +468,8 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
   installerOptions: InstallOptions | boolean | undefined,
 ): NormalizedInstaller {
   const base = plugin.install ?? {};
+  const resolvedLogo = base.logo ?? plugin.manifest.plugin.logo;
+  const resolvedBackground = base.background;
 
   if (installerOptions === false) {
     return {
@@ -474,7 +478,9 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       subtitle: base.subtitle ?? plugin.manifest.plugin.version,
       description:
         base.description ?? plugin.manifest.plugin.description ?? "Install and configure this plugin before adding it to your app.",
-      installButtonText: base.installButtonText ?? "Install Addon",
+      ...(resolvedLogo !== undefined ? { logo: resolvedLogo } : {}),
+      ...(resolvedBackground !== undefined ? { background: resolvedBackground } : {}),
+      installButtonText: base.installButtonText ?? "Install Plugin",
       openManifestButtonText: base.openManifestButtonText ?? "Open Manifest",
       copyManifestButtonText: base.copyManifestButtonText ?? "Copy Manifest URL",
       fields: [],
@@ -483,6 +489,8 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
 
   const explicit = typeof installerOptions === "object" ? installerOptions : {};
   const fields = explicit.fields ?? base.fields ?? [];
+  const resolvedExplicitLogo = explicit.logo ?? resolvedLogo;
+  const resolvedExplicitBackground = explicit.background ?? resolvedBackground;
 
   return {
     enabled: explicit.enabled ?? base.enabled ?? true,
@@ -493,7 +501,9 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       base.description ??
       plugin.manifest.plugin.description ??
       "Install and configure this plugin before adding it to your app.",
-    installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Addon",
+    ...(resolvedExplicitLogo !== undefined ? { logo: resolvedExplicitLogo } : {}),
+    ...(resolvedExplicitBackground !== undefined ? { background: resolvedExplicitBackground } : {}),
+    installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Plugin",
     openManifestButtonText: explicit.openManifestButtonText ?? base.openManifestButtonText ?? "Open Manifest",
     copyManifestButtonText: explicit.copyManifestButtonText ?? base.copyManifestButtonText ?? "Copy Manifest URL",
     fields,
