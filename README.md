@@ -1,14 +1,14 @@
-# StreamFox Node Plugin SDK
+# StreamFox Plugin SDK
 
-`@streamfox/plugin-sdk` is the canonical package for building StreamFox-compatible plugins in Node.js (JS + TS).
+`@streamfox/plugin-sdk` is the Node.js SDK for building StreamFox-compatible media plugins.
 
 It provides:
 
-- `definePlugin(...)` for a low-boilerplate plugin definition flow.
-- Built-in HTTP hosting (`createServer`, `serve`) with schema-v1 validation.
-- Built-in installer UI (Stremio-style install/config page).
-- Typed settings field DSL (`settings.text`, `settings.password`, `settings.number`, `settings.checkbox`, `settings.select`, `settings.multiSelect`, `settings.textarea`).
-- Strict protocol validation aligned with `swift-media-plugin-kit`.
+- `definePlugin(...)` for a compact plugin definition flow
+- built-in HTTP hosting with `createServer(...)` and `serve(...)`
+- schema-v1 request, manifest, and response validation
+- installer UI and typed settings helpers
+- a contract aligned with `swift-media-plugin-kit`
 
 ## Install
 
@@ -16,7 +16,9 @@ It provides:
 npm i @streamfox/plugin-sdk
 ```
 
-## 5-Minute TypeScript Plugin
+## Quick Start
+
+### TypeScript
 
 ```ts
 import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
@@ -63,7 +65,7 @@ console.log("Manifest:", url);
 console.log("Installer:", url.replace("/manifest", "/"));
 ```
 
-## 5-Minute JavaScript Plugin
+### JavaScript
 
 ```js
 import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
@@ -90,7 +92,7 @@ const plugin = definePlugin({
 await serve(plugin, { port: 7000 });
 ```
 
-## Request Endpoints
+## HTTP Contract
 
 - `GET /manifest`
 - `GET /studio-config`
@@ -102,7 +104,7 @@ await serve(plugin, { port: 7000 });
 
 All resource requests are validated against schema v1 contracts.
 
-## Settings Behavior
+## Settings
 
 Installer/settings values are read from request query params and parsed before handlers run.
 
@@ -114,7 +116,7 @@ Installer/settings values are read from request query params and parsed before h
 
 In handlers, read values from `context.settings`.
 
-## HTTPS + Deeplink
+## HTTPS and Deeplinks
 
 ```ts
 await serve(plugin, {
@@ -130,14 +132,14 @@ await serve(plugin, {
 });
 ```
 
-## Migration (Old API -> New API)
+## Migration
 
 - Old: `createPlugin({ manifest, handlers })`
 - New primary: `definePlugin({ plugin, resources, install })`
 
 You can still use `createPlugin` directly for advanced/manual manifest workflows.
 
-## Advanced APIs
+## Advanced API
 
 Use these when you need low-level control:
 
@@ -157,7 +159,7 @@ Or subpath export:
 import { validateManifest, validateRequest, validateResponse } from "@streamfox/plugin-sdk/advanced";
 ```
 
-## Local Development
+## Development
 
 ```bash
 npm install
@@ -165,4 +167,4 @@ npm run build
 npm test
 ```
 
-The CLI is maintained as a standalone package/repo (`create-streamfox-plugin`).
+The companion scaffolder lives in `create-streamfox-plugin`.
