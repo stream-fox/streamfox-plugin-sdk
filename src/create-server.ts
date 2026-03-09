@@ -22,8 +22,17 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-const moduleDir =
-  typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+function resolveModuleDir(): string {
+  if (typeof __dirname === "string") {
+    return __dirname;
+  }
+
+  // Keep import.meta out of the CJS build path to avoid tsup/esbuild warnings.
+  const metaUrl = Function("return import.meta.url")() as string;
+  return path.dirname(fileURLToPath(metaUrl));
+}
+
+const moduleDir = resolveModuleDir();
 
 export interface FrontendOptions {
   enabled?: boolean;
@@ -60,7 +69,6 @@ interface NormalizedInstaller {
   subtitle: string;
   description: string;
   logo?: string;
-  background?: string;
   installButtonText: string;
   openManifestButtonText: string;
   copyManifestButtonText: string;
@@ -469,7 +477,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
 ): NormalizedInstaller {
   const base = plugin.install ?? {};
   const resolvedLogo = base.logo ?? plugin.manifest.plugin.logo;
-  const resolvedBackground = base.background;
 
   if (installerOptions === false) {
     return {
@@ -479,7 +486,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       description:
         base.description ?? plugin.manifest.plugin.description ?? "Install and configure this plugin before adding it to your app.",
       ...(resolvedLogo !== undefined ? { logo: resolvedLogo } : {}),
-      ...(resolvedBackground !== undefined ? { background: resolvedBackground } : {}),
       installButtonText: base.installButtonText ?? "Install Plugin",
       openManifestButtonText: base.openManifestButtonText ?? "Open Manifest",
       copyManifestButtonText: base.copyManifestButtonText ?? "Copy Manifest URL",
@@ -490,7 +496,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
   const explicit = typeof installerOptions === "object" ? installerOptions : {};
   const fields = explicit.fields ?? base.fields ?? [];
   const resolvedExplicitLogo = explicit.logo ?? resolvedLogo;
-  const resolvedExplicitBackground = explicit.background ?? resolvedBackground;
 
   return {
     enabled: explicit.enabled ?? base.enabled ?? true,
@@ -502,7 +507,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       plugin.manifest.plugin.description ??
       "Install and configure this plugin before adding it to your app.",
     ...(resolvedExplicitLogo !== undefined ? { logo: resolvedExplicitLogo } : {}),
-    ...(resolvedExplicitBackground !== undefined ? { background: resolvedExplicitBackground } : {}),
     installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Plugin",
     openManifestButtonText: explicit.openManifestButtonText ?? base.openManifestButtonText ?? "Open Manifest",
     copyManifestButtonText: explicit.copyManifestButtonText ?? base.copyManifestButtonText ?? "Copy Manifest URL",
@@ -529,7 +533,7 @@ function buildStudioConfig(
     manifestPath,
     deeplink: {
       enabled: deepLinkOptions?.enabled ?? true,
-      scheme: deepLinkOptions?.scheme ?? "stremio",
+      scheme: deepLinkOptions?.scheme ?? "streamfox",
       manifestPath,
     },
     installer,

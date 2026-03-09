@@ -64,7 +64,6 @@ interface StudioConfig {
     subtitle: string;
     description: string;
     logo?: string;
-    background?: string;
     installButtonText: string;
     openManifestButtonText: string;
     copyManifestButtonText: string;
@@ -232,7 +231,7 @@ function MultiSelectDropdown({
     selected.length === 0 ? 'Select options' : selected.length <= 3 ? selected.join(', ') : `${selected.length} selected`;
 
   return (
-    <details className="rounded-2xl border border-border/80 bg-card/80 p-3 shadow-[0_12px_28px_rgba(15,23,42,0.08)] backdrop-blur">
+    <details className="rounded-xl border bg-card p-3">
       <summary className="cursor-pointer list-none text-sm font-medium text-foreground">{preview}</summary>
       <div className="mt-3 space-y-3">
         {field.searchable !== false ? (
@@ -246,7 +245,7 @@ function MultiSelectDropdown({
             filtered.map((option) => {
               const checked = selected.includes(option.value);
               return (
-                <label key={option.value} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/70">
+                <label key={option.value} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
                   <input
                     type="checkbox"
                     checked={checked}
@@ -275,7 +274,7 @@ function renderField(field: InstallerField, value: FormValue, onChange: (next: F
 
   if (fieldType === 'checkbox') {
     return (
-      <label className="flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/45 px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+      <label className="flex items-center gap-3 rounded-xl border bg-muted/50 px-4 py-3">
         <input
           type="checkbox"
           checked={value === true}
@@ -390,7 +389,6 @@ export function App(): JSX.Element {
   const installerSubtitle = config?.installer.subtitle ?? '';
   const pluginVersion = manifest?.plugin.version ?? config?.installer.subtitle ?? '1.0.0';
   const brandingLogo = config?.installer.logo ?? manifest?.plugin.logo ?? null;
-  const backgroundImage = config?.installer.background ?? null;
 
   const configuredManifestUrl = useMemo(() => {
     const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest';
@@ -409,7 +407,7 @@ export function App(): JSX.Element {
       return null;
     }
 
-    const scheme = config?.deeplink.scheme ?? 'stremio';
+    const scheme = config?.deeplink.scheme ?? 'streamfox';
     return `${scheme}://${window.location.host}${configuredManifestUrl.pathname}${configuredManifestUrl.search}`;
   }, [config, configuredManifestUrl]);
 
@@ -417,21 +415,6 @@ export function App(): JSX.Element {
     () => (manifest?.capabilities ?? []).map((capability) => capability.kind.replace('_', ' ')),
     [manifest],
   );
-
-  const pageStyle = useMemo(() => {
-    const overlay =
-      activeTheme === 'dark'
-        ? 'linear-gradient(135deg, rgba(4, 10, 17, 0.88), rgba(7, 19, 32, 0.74))'
-        : 'linear-gradient(135deg, rgba(243, 251, 252, 0.92), rgba(226, 240, 244, 0.84))';
-
-    return backgroundImage
-      ? {
-          backgroundImage: `${overlay}, url(${JSON.stringify(backgroundImage).slice(1, -1)})`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }
-      : undefined;
-  }, [activeTheme, backgroundImage]);
 
   const onFieldChange = (key: string, nextValue: FormValue): void => {
     setValues((previous) => ({
@@ -452,22 +435,16 @@ export function App(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(67,156,181,0.18),transparent_42%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)))] px-4 py-6 text-foreground sm:px-8 sm:py-8">
-      <div
-        className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] border border-border/70 bg-background/80 shadow-[0_36px_96px_rgba(9,23,38,0.18)] backdrop-blur-xl"
-        style={pageStyle}
-      >
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]" />
+    <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-8 sm:py-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">StreamFox Installer</p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{installerTitle}</h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{installerDescription}</p>
+          </div>
 
-        <div className="relative z-10 p-5 sm:p-8 lg:p-10">
-          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">StreamFox Installer</p>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{installerTitle}</h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{installerDescription}</p>
-            </div>
-
-            <div className="inline-flex rounded-full border border-border/80 bg-card/80 p-1 shadow-[0_16px_32px_rgba(9,23,38,0.08)] backdrop-blur">
+          <div className="inline-flex rounded-full border bg-muted/40 p-1">
               {(['system', 'light', 'dark'] as const).map((option) => {
                 const selected = themePreference === option;
                 return (
@@ -483,15 +460,15 @@ export function App(): JSX.Element {
                   </button>
                 );
               })}
-            </div>
           </div>
+        </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-            <Card className="overflow-hidden border-border/80 bg-card/82 shadow-[0_24px_60px_rgba(9,23,38,0.14)] backdrop-blur-xl">
-              <CardHeader className="space-y-5 border-b border-border/70 pb-5">
+        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+          <Card className="overflow-hidden shadow-sm">
+            <CardHeader className="space-y-5 border-b pb-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-background/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background">
                       {brandingLogo ? (
                         <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
                       ) : (
@@ -502,7 +479,7 @@ export function App(): JSX.Element {
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-2xl">{manifest?.plugin.name ?? installerTitle}</CardTitle>
-                        <Badge className="bg-primary/10 text-primary dark:bg-primary/15">v{pluginVersion}</Badge>
+                        <Badge>v{pluginVersion}</Badge>
                       </div>
 
                       {installerSubtitle && installerSubtitle !== pluginVersion ? (
@@ -538,7 +515,7 @@ export function App(): JSX.Element {
 
                 {copyState ? <p className="text-xs text-muted-foreground">{copyState}</p> : null}
                 {errorText ? (
-                  <div className="rounded-2xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+                  <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
                     {errorText}
                   </div>
                 ) : null}
@@ -556,7 +533,7 @@ export function App(): JSX.Element {
                 </div>
 
                 {fields.length === 0 ? (
-                  <div className="rounded-2xl border border-border/80 bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+                  <div className="rounded-xl border bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
                     No configuration fields are required for this plugin.
                   </div>
                 ) : (
@@ -576,13 +553,13 @@ export function App(): JSX.Element {
                   ))
                 )}
               </CardContent>
-            </Card>
+          </Card>
 
-            <div className="space-y-6">
-              <Card className="overflow-hidden border-border/80 bg-card/78 shadow-[0_24px_60px_rgba(9,23,38,0.14)] backdrop-blur-xl">
+          <div className="space-y-6">
+            <Card className="overflow-hidden shadow-sm">
                 <CardHeader className="space-y-5">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Plugin Summary</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Plugin Summary</p>
                     <CardTitle className="text-xl">Installation snapshot</CardTitle>
                     <CardDescription>
                       Branded summary for what the client will install, with raw links available only when needed.
@@ -591,9 +568,9 @@ export function App(): JSX.Element {
                 </CardHeader>
 
                 <CardContent className="space-y-5">
-                  <div className="rounded-[24px] border border-border/70 bg-background/75 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                  <div className="rounded-xl border bg-background p-4">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-card">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-card">
                         {brandingLogo ? (
                           <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
                         ) : (
@@ -608,14 +585,14 @@ export function App(): JSX.Element {
                     </div>
                   </div>
 
-                  <dl className="space-y-3 rounded-[24px] border border-border/70 bg-muted/20 p-4">
+                  <dl className="space-y-3 rounded-xl border bg-muted/20 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <dt className="text-sm text-muted-foreground">Theme</dt>
                       <dd className="text-right text-sm font-medium capitalize">{themePreference === 'system' ? `system (${systemTheme})` : activeTheme}</dd>
                     </div>
                     <div className="flex items-start justify-between gap-3">
                       <dt className="text-sm text-muted-foreground">Deeplink</dt>
-                      <dd className="text-right text-sm font-medium">{installHref ? config?.deeplink.scheme ?? 'stremio' : 'disabled'}</dd>
+                      <dd className="text-right text-sm font-medium">{installHref ? config?.deeplink.scheme ?? 'streamfox' : 'disabled'}</dd>
                     </div>
                     <div className="flex items-start justify-between gap-3">
                       <dt className="text-sm text-muted-foreground">Capabilities</dt>
@@ -643,7 +620,7 @@ export function App(): JSX.Element {
                     ) : null}
                   </dl>
 
-                  <details className="group rounded-[24px] border border-border/70 bg-card/70 p-4">
+                  <details className="group rounded-xl border bg-card p-4">
                     <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
                       Advanced install details
                     </summary>
@@ -660,8 +637,7 @@ export function App(): JSX.Element {
                     </div>
                   </details>
                 </CardContent>
-              </Card>
-            </div>
+            </Card>
           </div>
         </div>
       </div>

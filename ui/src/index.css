@@ -1,41 +1,44 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 :root {
-  --background: 196 62% 98%;
-  --foreground: 198 42% 13%;
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
   --card: 0 0% 100%;
-  --card-foreground: 198 42% 13%;
-  --primary: 190 71% 31%;
-  --primary-foreground: 0 0% 100%;
-  --muted: 190 31% 92%;
-  --muted-foreground: 198 23% 35%;
-  --border: 194 30% 84%;
-  --input: 194 28% 82%;
+  --card-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
   --radius: 0.9rem;
 }
 
 .dark {
-  --background: 208 43% 8%;
-  --foreground: 198 36% 93%;
-  --card: 208 39% 11%;
-  --card-foreground: 198 36% 93%;
-  --primary: 188 72% 48%;
-  --primary-foreground: 208 43% 8%;
-  --muted: 206 28% 18%;
-  --muted-foreground: 198 18% 68%;
-  --border: 207 26% 24%;
-  --input: 207 26% 25%;
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
 }
 
 * {
-  @apply border-border;
+  border-color: hsl(var(--border));
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   font-family: "Satoshi", "General Sans", "Avenir Next", "Segoe UI", sans-serif;
-  @apply bg-background text-foreground antialiased transition-colors duration-300;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }

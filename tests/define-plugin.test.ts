@@ -268,16 +268,13 @@ describe("definePlugin", () => {
     expect((await app.request("/plugin_catalog/featured")).status).toBe(404);
   });
 
-  it("includes installer branding values in studio config", async () => {
+  it("includes installer logo values in studio config", async () => {
     const pluginWithFallbackLogo = definePlugin({
       plugin: {
         id: "com.example.branding-fallback",
         name: "Branding Fallback",
         version: "1.0.0",
         logo: "https://cdn.example.com/plugin-logo.png",
-      },
-      install: {
-        background: "https://cdn.example.com/installer-bg.jpg",
       },
       resources: {
         meta: {
@@ -293,7 +290,6 @@ describe("definePlugin", () => {
 
     expect(fallbackResponse.status).toBe(200);
     expect(fallbackBody.installer.logo).toBe("https://cdn.example.com/plugin-logo.png");
-    expect(fallbackBody.installer.background).toBe("https://cdn.example.com/installer-bg.jpg");
 
     const pluginWithOverrideLogo = definePlugin({
       plugin: {
@@ -319,6 +315,29 @@ describe("definePlugin", () => {
 
     expect(overrideResponse.status).toBe(200);
     expect(overrideBody.installer.logo).toBe("https://cdn.example.com/installer-logo.png");
+  });
+
+  it("defaults deeplink scheme to streamfox", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.default-deeplink",
+        name: "Default Deeplink",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request("/studio-config");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.deeplink.scheme).toBe("streamfox");
   });
 
   it("prefers path identifiers over equivalent query values", async () => {

@@ -33,7 +33,6 @@ const plugin = definePlugin({
   install: {
     title: "Subtitle Settings",
     logo: "https://cdn.example.com/subtitles-logo.png",
-    background: "https://cdn.example.com/subtitles-bg.jpg",
     fields: [
       settings.text("languages", { defaultValue: "en,el", placeholder: "en,el" }),
       settings.checkbox("includeHI", { defaultValue: true }),
@@ -120,10 +119,9 @@ In handlers, read values from `context.settings`.
 
 ## Installer Branding
 
-`install.logo` and `install.background` let you brand the built-in installer UI:
+`install.logo` lets you brand the built-in installer UI:
 
 - `logo`: icon/logo image URL shown in the installer card
-- `background`: full-page background image URL (rendered with an overlay for readability)
 
 If `install.logo` is omitted, the UI falls back to `manifest.plugin.logo` when present.
 
@@ -138,7 +136,7 @@ await serve(plugin, {
   },
   deeplink: {
     enabled: true,
-    scheme: "stremio",
+    scheme: "streamfox",
   },
 });
 ```
