@@ -332,7 +332,6 @@ export function App(): JSX.Element {
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [values, setValues] = useState<Record<string, FormValue>>({});
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [copyState, setCopyState] = useState<string | null>(null);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredTheme);
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
 
@@ -389,6 +388,7 @@ export function App(): JSX.Element {
   const installerSubtitle = config?.installer.subtitle ?? '';
   const pluginVersion = manifest?.plugin.version ?? config?.installer.subtitle ?? '1.0.0';
   const brandingLogo = config?.installer.logo ?? manifest?.plugin.logo ?? null;
+  const pluginSummaryText = manifest?.plugin.description ?? installerDescription;
 
   const configuredManifestUrl = useMemo(() => {
     const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest';
@@ -421,17 +421,6 @@ export function App(): JSX.Element {
       ...previous,
       [key]: nextValue,
     }));
-  };
-
-  const copyManifest = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(configuredManifestUrl.toString());
-      setCopyState('Manifest URL copied');
-      window.setTimeout(() => setCopyState(null), 2000);
-    } catch {
-      setCopyState('Copy failed');
-      window.setTimeout(() => setCopyState(null), 2000);
-    }
   };
 
   return (
@@ -486,8 +475,8 @@ export function App(): JSX.Element {
                         <p className="text-sm font-medium text-muted-foreground">{installerSubtitle}</p>
                       ) : null}
 
-                      <CardDescription className="max-w-2xl text-sm leading-6">
-                        {manifest?.plugin.description ?? installerDescription}
+                      <CardDescription className="max-w-[26rem] truncate text-sm" title={pluginSummaryText}>
+                        {pluginSummaryText}
                       </CardDescription>
                     </div>
                   </div>
@@ -501,9 +490,6 @@ export function App(): JSX.Element {
                     <a href={configuredManifestUrl.toString()} target="_blank" rel="noreferrer">
                       <Button variant="secondary" size="sm">{config?.installer.openManifestButtonText ?? 'Open Manifest'}</Button>
                     </a>
-                    <Button variant="secondary" size="sm" onClick={() => void copyManifest()}>
-                      {config?.installer.copyManifestButtonText ?? 'Copy Manifest URL'}
-                    </Button>
                   </div>
                 </div>
 
@@ -513,7 +499,6 @@ export function App(): JSX.Element {
                   ))}
                 </div>
 
-                {copyState ? <p className="text-xs text-muted-foreground">{copyState}</p> : null}
                 {errorText ? (
                   <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
                     {errorText}
