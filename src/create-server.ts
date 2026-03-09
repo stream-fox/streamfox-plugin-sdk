@@ -21,8 +21,6 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-const resourcePaths: ResourceKind[] = ["catalog", "meta", "stream", "subtitles", "plugin_catalog"];
-
 export interface FrontendOptions {
   enabled?: boolean;
   mountPath?: string;
@@ -43,6 +41,13 @@ export interface CreateServerOptions {
   frontend?: FrontendOptions | boolean;
   deeplink?: DeepLinkOptions;
   installer?: InstallOptions | boolean;
+}
+
+interface RouteIdentifiers {
+  mediaType?: string;
+  catalogID?: string;
+  itemID?: string;
+  pluginKind?: string;
 }
 
 interface NormalizedInstaller {
@@ -119,6 +124,49 @@ function parseStringListQuery(searchParams: URLSearchParams, key: string): strin
   return values.length > 0 ? values : undefined;
 }
 
+function assertNeverResource(value: never, traceId?: string): never {
+  throw ProtocolError.requestInvalid(`Unsupported resource '${String(value)}'`, undefined, traceId);
+}
+
+function resolveIdentifierFromPathOrQuery(
+  searchParams: URLSearchParams,
+  routeIdentifiers: RouteIdentifiers,
+  key: keyof RouteIdentifiers,
+): string {
+  return routeIdentifiers[key] ?? searchParams.get(key) ?? "";
+}
+
+function withCanonicalRouteIdentifiers<K extends ResourceKind>(
+  resource: K,
+  request: ResourceRequestMap[K],
+  routeIdentifiers: RouteIdentifiers,
+): ResourceRequestMap[K] {
+  switch (resource) {
+    case "catalog":
+      return {
+        ...request,
+        ...(routeIdentifiers.catalogID !== undefined ? { catalogID: routeIdentifiers.catalogID } : {}),
+        ...(routeIdentifiers.mediaType !== undefined ? { mediaType: routeIdentifiers.mediaType } : {}),
+      } as ResourceRequestMap[K];
+    case "meta":
+    case "stream":
+    case "subtitles":
+      return {
+        ...request,
+        ...(routeIdentifiers.itemID !== undefined ? { itemID: routeIdentifiers.itemID } : {}),
+        ...(routeIdentifiers.mediaType !== undefined ? { mediaType: routeIdentifiers.mediaType } : {}),
+      } as ResourceRequestMap[K];
+    case "plugin_catalog":
+      return {
+        ...request,
+        ...(routeIdentifiers.catalogID !== undefined ? { catalogID: routeIdentifiers.catalogID } : {}),
+        ...(routeIdentifiers.pluginKind !== undefined ? { pluginKind: routeIdentifiers.pluginKind } : {}),
+      } as ResourceRequestMap[K];
+    default:
+      return assertNeverResource(resource);
+  }
+}
+
 function parseSchemaVersionFromQuery(
   searchParams: URLSearchParams,
   options: CreateServerOptions,
@@ -152,26 +200,7 @@ function parseSchemaVersionFromQuery(
       minor,
     };
   }
-
-  const major = parseIntegerQueryValue(searchParams.get("schemaMajor"), "schemaMajor", traceId);
-  const minor = parseIntegerQueryValue(searchParams.get("schemaMinor"), "schemaMinor", traceId);
-
-  if ((major !== undefined && major < 0) || (minor !== undefined && minor < 0)) {
-    throw ProtocolError.requestInvalid(
-      "query parameters 'schemaMajor' and 'schemaMinor' must be non-negative integers",
-      { schemaMajor: major, schemaMinor: minor },
-      traceId,
-    );
-  }
-
-  if (major === undefined && minor === undefined) {
-    return { ...SCHEMA_VERSION_CURRENT };
-  }
-
-  return {
-    major: major ?? SCHEMA_VERSION_CURRENT.major,
-    minor: minor ?? SCHEMA_VERSION_CURRENT.minor,
-  };
+  return { ...SCHEMA_VERSION_CURRENT };
 }
 
 function parsePageFromQuery(
@@ -222,6 +251,7 @@ function parseRequestFromQuery<K extends ResourceKind>(
   resource: K,
   searchParams: URLSearchParams,
   options: CreateServerOptions,
+  routeIdentifiers: RouteIdentifiers = {},
   headerTraceId?: string,
 ): ResourceRequestMap[K] {
   const explicitRequest = parseOptionalString(searchParams.get("request"));
@@ -230,7 +260,7 @@ function parseRequestFromQuery<K extends ResourceKind>(
     if (!isRecord(parsed)) {
       throw ProtocolError.requestInvalid("query parameter 'request' must be a JSON object", undefined, headerTraceId);
     }
-    return parsed as ResourceRequestMap[K];
+    return withCanonicalRouteIdentifiers(resource, parsed as ResourceRequestMap[K], routeIdentifiers);
   }
 
   const schemaVersion = parseSchemaVersionFromQuery(searchParams, options, headerTraceId);
@@ -242,6 +272,10 @@ function parseRequestFromQuery<K extends ResourceKind>(
 
   const context = Object.keys(parsedContext).length > 0 ? parsedContext : undefined;
   const experimental = parseJsonQueryParam<unknown[]>(searchParams, "experimental", options, headerTraceId);
+  const mediaType = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "mediaType");
+  const catalogID = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "catalogID");
+  const itemID = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "itemID");
+  const pluginKind = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "pluginKind");
 
   switch (resource) {
     case "catalog": {
@@ -252,8 +286,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
 
       return {
         schemaVersion,
-        catalogID: searchParams.get("catalogID") ?? "",
-        mediaType: searchParams.get("mediaType") ?? "",
+        catalogID,
+        mediaType,
         ...(query !== undefined ? { query } : {}),
         ...(page !== undefined ? { page } : {}),
         ...(sort !== undefined ? { sort } : {}),
@@ -265,8 +299,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
     case "meta":
       return {
         schemaVersion,
-        mediaType: searchParams.get("mediaType") ?? "",
-        itemID: searchParams.get("itemID") ?? "",
+        mediaType,
+        itemID,
         ...(context !== undefined ? { context } : {}),
         ...(experimental !== undefined ? { experimental } : {}),
       } as ResourceRequestMap[K];
@@ -276,8 +310,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
 
       return {
         schemaVersion,
-        mediaType: searchParams.get("mediaType") ?? "",
-        itemID: searchParams.get("itemID") ?? "",
+        mediaType,
+        itemID,
         ...(videoID !== undefined ? { videoID } : {}),
         ...(playback !== undefined ? { playback } : {}),
         ...(context !== undefined ? { context } : {}),
@@ -295,8 +329,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
 
       return {
         schemaVersion,
-        mediaType: searchParams.get("mediaType") ?? "",
-        itemID: searchParams.get("itemID") ?? "",
+        mediaType,
+        itemID,
         ...(videoFingerprint !== undefined ? { videoFingerprint } : {}),
         ...(languagePreferences !== undefined ? { languagePreferences } : {}),
         ...(context !== undefined ? { context } : {}),
@@ -309,8 +343,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
 
       return {
         schemaVersion,
-        catalogID: searchParams.get("catalogID") ?? "",
-        pluginKind: searchParams.get("pluginKind") ?? "",
+        catalogID,
+        pluginKind,
         ...(query !== undefined ? { query } : {}),
         ...(page !== undefined ? { page } : {}),
         ...(context !== undefined ? { context } : {}),
@@ -318,7 +352,7 @@ function parseRequestFromQuery<K extends ResourceKind>(
       } as ResourceRequestMap[K];
     }
     default:
-      throw ProtocolError.requestInvalid(`Unsupported resource '${String(resource)}'`, undefined, headerTraceId);
+      return assertNeverResource(resource, headerTraceId);
   }
 }
 
@@ -475,7 +509,7 @@ function buildStudioConfig(
   };
   installer: NormalizedInstaller;
 } {
-  const manifestPath = deepLinkOptions?.manifestPath ?? `${prefix}/manifest.json`;
+  const manifestPath = deepLinkOptions?.manifestPath ?? `${prefix}/manifest`;
 
   return {
     manifestPath,
@@ -507,39 +541,88 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
     return context.json(normalized.toJSON(), normalized.status as 400 | 404 | 500);
   });
 
-  app.get(`${prefix}/manifest.json`, (context) => {
+  app.get(`${prefix}/manifest`, (context) => {
     const traceId = context.req.header("x-trace-id") ?? randomUUID();
     context.header("x-trace-id", traceId);
     return context.json(plugin.manifest, 200);
   });
 
-  app.get(`${prefix}/studio-config.json`, (context) => {
+  app.get(`${prefix}/studio-config`, (context) => {
     const traceId = context.req.header("x-trace-id") ?? randomUUID();
     context.header("x-trace-id", traceId);
     return context.json(buildStudioConfig(prefix, options.deeplink, installer), 200);
   });
 
-  for (const resource of resourcePaths) {
-    app.get(`${prefix}/${resource}`, async (context) => {
+  const mediaItemRouteIdentifiers = (context: any): RouteIdentifiers => ({
+    mediaType: context.req.param("mediaType"),
+    itemID: context.req.param("itemID"),
+  });
+
+  const resourceRoutes: Array<{
+    resource: ResourceKind;
+    pattern: string;
+    identifiers: (context: any) => RouteIdentifiers;
+  }> = [
+    {
+      resource: "catalog",
+      pattern: `${prefix}/catalog/:mediaType/:catalogID`,
+      identifiers: (context) => ({
+        mediaType: context.req.param("mediaType"),
+        catalogID: context.req.param("catalogID"),
+      }),
+    },
+    {
+      resource: "meta",
+      pattern: `${prefix}/meta/:mediaType/:itemID`,
+      identifiers: mediaItemRouteIdentifiers,
+    },
+    {
+      resource: "stream",
+      pattern: `${prefix}/stream/:mediaType/:itemID`,
+      identifiers: mediaItemRouteIdentifiers,
+    },
+    {
+      resource: "subtitles",
+      pattern: `${prefix}/subtitles/:mediaType/:itemID`,
+      identifiers: mediaItemRouteIdentifiers,
+    },
+    {
+      resource: "plugin_catalog",
+      pattern: `${prefix}/plugin_catalog/:catalogID/:pluginKind`,
+      identifiers: (context) => ({
+        catalogID: context.req.param("catalogID"),
+        pluginKind: context.req.param("pluginKind"),
+      }),
+    },
+  ];
+
+  for (const route of resourceRoutes) {
+    app.get(route.pattern, async (context) => {
       const searchParams = new URL(context.req.url).searchParams;
-      const request = parseRequestFromQuery(resource, searchParams, options, context.req.header("x-trace-id"));
+      const request = parseRequestFromQuery(
+        route.resource,
+        searchParams,
+        options,
+        route.identifiers(context),
+        context.req.header("x-trace-id"),
+      );
       const traceId = buildTraceId(context.req.header("x-trace-id"), request);
 
       context.header("x-trace-id", traceId);
 
-      const validRequest = validateRequest(resource, request, plugin.manifest, plugin.index, traceId);
+      const validRequest = validateRequest(route.resource, request, plugin.manifest, plugin.index, traceId);
       const settings = parseInstallSettings(installer.fields, searchParams, traceId) as
         | Partial<TSettings>
         | undefined;
 
-      const response = await plugin.handle(resource, validRequest, {
+      const response = await plugin.handle(route.resource, validRequest, {
         traceId,
         headers: Object.fromEntries(context.req.raw.headers),
         request: context.req.raw,
         ...(settings ? { settings } : {}),
       });
 
-      const validResponse = validateResponse(resource, response, traceId) as Record<string, unknown>;
+      const validResponse = validateResponse(route.resource, response, traceId) as Record<string, unknown>;
 
       const headers = new Headers({
         "content-type": "application/json; charset=utf-8",

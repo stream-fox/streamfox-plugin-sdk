@@ -60,7 +60,7 @@ const plugin = definePlugin({
 
 const { url } = await serve(plugin, { port: 7000 });
 console.log("Manifest:", url);
-console.log("Installer:", url.replace("/manifest.json", "/"));
+console.log("Installer:", url.replace("/manifest", "/"));
 ```
 
 ## 5-Minute JavaScript Plugin
@@ -92,13 +92,13 @@ await serve(plugin, { port: 7000 });
 
 ## Request Endpoints
 
-- `GET /manifest.json`
-- `GET /studio-config.json`
-- `GET /catalog`
-- `GET /meta`
-- `GET /stream`
-- `GET /subtitles`
-- `GET /plugin_catalog`
+- `GET /manifest`
+- `GET /studio-config`
+- `GET /catalog/:mediaType/:catalogID`
+- `GET /meta/:mediaType/:itemID`
+- `GET /stream/:mediaType/:itemID`
+- `GET /subtitles/:mediaType/:itemID`
+- `GET /plugin_catalog/:catalogID/:pluginKind`
 
 All resource requests are validated against schema v1 contracts.
 

@@ -92,7 +92,7 @@ export async function serve<TSettings extends Record<string, SettingPrimitive>>(
   return {
     app,
     server,
-    url: `${scheme}://${hostname}:${resolvedPort}${options.basePath ?? ""}/manifest.json`,
+    url: `${scheme}://${hostname}:${resolvedPort}${options.basePath ?? ""}/manifest`,
     close: () =>
       new Promise((resolve, reject) => {
         server.close((error) => {

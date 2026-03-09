@@ -83,7 +83,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125&maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en");
+    const response = await app.request("/subtitles/movie/tt125?maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en");
 
     expect(response.status).toBe(200);
     expect(captured).toEqual({
@@ -119,7 +119,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125");
+    const response = await app.request("/subtitles/movie/tt125");
 
     expect(response.status).toBe(400);
 
@@ -155,7 +155,7 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles?mediaType=movie&itemID=tt125&languages=el&languages=de");
+    const response = await app.request("/subtitles/movie/tt125?languages=el&languages=de");
 
     expect(response.status).toBe(400);
 
@@ -182,12 +182,127 @@ describe("definePlugin", () => {
 
     const app = createServer(plugin, { frontend: false });
     const malformed = encodeURIComponent(JSON.stringify({ major: 1 }));
-    const response = await app.request(`/meta?mediaType=movie&itemID=tt125&schemaVersion=${malformed}`);
+    const response = await app.request(`/meta/movie/tt125?schemaVersion=${malformed}`);
 
     expect(response.status).toBe(400);
 
     const body = await response.json();
     expect(body.error.code).toBe("REQUEST_INVALID");
     expect(body.error.message).toContain("schemaVersion");
+  });
+
+  it("returns 404 for legacy .json and flat resource endpoints", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.legacy-routes",
+        name: "Legacy Routes",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({
+            item: null,
+          }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    expect((await app.request("/manifest.json")).status).toBe(404);
+    expect((await app.request("/studio-config.json")).status).toBe(404);
+    expect((await app.request("/meta?mediaType=movie&itemID=tt123")).status).toBe(404);
+    expect((await app.request("/catalog")).status).toBe(404);
+    expect((await app.request("/stream")).status).toBe(404);
+    expect((await app.request("/subtitles")).status).toBe(404);
+    expect((await app.request("/plugin_catalog")).status).toBe(404);
+  });
+
+  it("serves canonical path-param routes for all resources", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.path-routes",
+        name: "Path Routes",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [{ id: "top", name: "Top", mediaTypes: ["movie"] }],
+          handler: async () => ({ items: [] }),
+        },
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+        stream: {
+          mediaTypes: ["movie"],
+          deliveryKinds: ["direct_url"],
+          handler: async () => ({ streams: [] }),
+        },
+        subtitles: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ subtitles: [] }),
+        },
+        pluginCatalog: {
+          endpoints: [{ id: "featured", name: "Featured", pluginKinds: ["catalog"] }],
+          handler: async () => ({ plugins: [] }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    expect((await app.request("/manifest")).status).toBe(200);
+    expect((await app.request("/studio-config")).status).toBe(200);
+    expect((await app.request("/catalog/movie/top")).status).toBe(200);
+    expect((await app.request("/meta/movie/tt123")).status).toBe(200);
+    expect((await app.request("/stream/movie/tt123")).status).toBe(200);
+    expect((await app.request("/subtitles/movie/tt123")).status).toBe(200);
+    expect((await app.request("/plugin_catalog/featured/catalog")).status).toBe(200);
+
+    expect((await app.request("/catalog/movie")).status).toBe(404);
+    expect((await app.request("/meta/movie")).status).toBe(404);
+    expect((await app.request("/stream/movie")).status).toBe(404);
+    expect((await app.request("/subtitles/movie")).status).toBe(404);
+    expect((await app.request("/plugin_catalog/featured")).status).toBe(404);
+  });
+
+  it("prefers path identifiers over equivalent query values", async () => {
+    let captured:
+      | {
+          mediaType?: string;
+          itemID?: string;
+        }
+      | undefined;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.path-precedence",
+        name: "Path Precedence",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async (request) => {
+            captured = {
+              mediaType: request.mediaType,
+              itemID: request.itemID,
+            };
+            return { item: null };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request("/meta/movie/tt123?mediaType=series&itemID=override");
+
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      mediaType: "movie",
+      itemID: "tt123",
+    });
   });
 });
