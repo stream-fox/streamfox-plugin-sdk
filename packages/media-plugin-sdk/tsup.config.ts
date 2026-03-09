@@ -1,11 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ["src/index.ts", "src/advanced.ts"],
   format: ['esm', 'cjs'],
   outDir: 'dist',
   dts: true,
-  clean: true,
+  clean: false,
   splitting: false,
   sourcemap: true,
   target: 'node24',

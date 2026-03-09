@@ -7,6 +7,7 @@ import {
   type CatalogResponse,
   type FilterSpec,
   type Manifest,
+  type ManifestIndex,
   type MediaDetail,
   type MediaSummary,
   type MetaRequest,
@@ -29,11 +30,6 @@ import {
 } from "./types";
 import {
   asArray,
-  getCatalogCapability,
-  getMetaCapability,
-  getPluginCatalogCapability,
-  getStreamCapability,
-  getSubtitlesCapability,
   isRecord,
   nonBlank,
 } from "./utils";
@@ -239,14 +235,22 @@ function validateFilterValueType(filter: RequestFilter, spec: FilterSpec, traceI
   );
 }
 
-function validateCatalogRequest(request: CatalogRequest, manifest: Manifest, traceId?: string): CatalogRequest {
+function validateCatalogRequest(
+  request: CatalogRequest,
+  manifest: Manifest,
+  index?: ManifestIndex,
+  traceId?: string,
+): CatalogRequest {
   checkSupportedSchemaVersion(request.schemaVersion, "request.catalog", "request", traceId);
   assertRequest(nonBlank(request.catalogID), "catalogID cannot be empty", undefined, traceId);
 
-  const capability = getCatalogCapability(manifest);
+  const capability = (index?.capabilityByKind.catalog ??
+    manifest.capabilities.find((candidate): candidate is Extract<Capability, { kind: "catalog" }> => candidate.kind === "catalog")) as
+    | Extract<Capability, { kind: "catalog" }>
+    | undefined;
   assertRequest(!!capability, "catalog capability is not declared", undefined, traceId);
 
-  const endpoint = asArray(capability.endpoints).find((candidate) => candidate.id === request.catalogID);
+  const endpoint = index?.catalogEndpointByID.get(request.catalogID) ?? asArray(capability.endpoints).find((candidate) => candidate.id === request.catalogID);
   assertRequest(!!endpoint, `unknown catalog endpoint '${request.catalogID}'`, undefined, traceId);
 
   assertRequest(
@@ -295,11 +299,19 @@ function validateCatalogRequest(request: CatalogRequest, manifest: Manifest, tra
   return request;
 }
 
-function validateMetaRequest(request: MetaRequest, manifest: Manifest, traceId?: string): MetaRequest {
+function validateMetaRequest(
+  request: MetaRequest,
+  manifest: Manifest,
+  index?: ManifestIndex,
+  traceId?: string,
+): MetaRequest {
   checkSupportedSchemaVersion(request.schemaVersion, "request.meta", "request", traceId);
   assertRequest(nonBlank(request.itemID), "itemID cannot be empty", undefined, traceId);
 
-  const capability = getMetaCapability(manifest);
+  const capability = (index?.capabilityByKind.meta ??
+    manifest.capabilities.find((candidate): candidate is Extract<Capability, { kind: "meta" }> => candidate.kind === "meta")) as
+    | Extract<Capability, { kind: "meta" }>
+    | undefined;
   assertRequest(!!capability, "meta capability is not declared", undefined, traceId);
 
   assertRequest(
@@ -312,7 +324,12 @@ function validateMetaRequest(request: MetaRequest, manifest: Manifest, traceId?:
   return request;
 }
 
-function validateStreamRequest(request: StreamRequest, manifest: Manifest, traceId?: string): StreamRequest {
+function validateStreamRequest(
+  request: StreamRequest,
+  manifest: Manifest,
+  index?: ManifestIndex,
+  traceId?: string,
+): StreamRequest {
   checkSupportedSchemaVersion(request.schemaVersion, "request.stream", "request", traceId);
   assertRequest(nonBlank(request.itemID), "itemID cannot be empty", undefined, traceId);
 
@@ -320,7 +337,10 @@ function validateStreamRequest(request: StreamRequest, manifest: Manifest, trace
     assertRequest(nonBlank(request.videoID), "videoID cannot be blank when provided", undefined, traceId);
   }
 
-  const capability = getStreamCapability(manifest);
+  const capability = (index?.capabilityByKind.stream ??
+    manifest.capabilities.find((candidate): candidate is Extract<Capability, { kind: "stream" }> => candidate.kind === "stream")) as
+    | Extract<Capability, { kind: "stream" }>
+    | undefined;
   assertRequest(!!capability, "stream capability is not declared", undefined, traceId);
 
   assertRequest(
@@ -333,11 +353,19 @@ function validateStreamRequest(request: StreamRequest, manifest: Manifest, trace
   return request;
 }
 
-function validateSubtitlesRequest(request: SubtitlesRequest, manifest: Manifest, traceId?: string): SubtitlesRequest {
+function validateSubtitlesRequest(
+  request: SubtitlesRequest,
+  manifest: Manifest,
+  index?: ManifestIndex,
+  traceId?: string,
+): SubtitlesRequest {
   checkSupportedSchemaVersion(request.schemaVersion, "request.subtitles", "request", traceId);
   assertRequest(nonBlank(request.itemID), "itemID cannot be empty", undefined, traceId);
 
-  const capability = getSubtitlesCapability(manifest);
+  const capability = (index?.capabilityByKind.subtitles ??
+    manifest.capabilities.find((candidate): candidate is Extract<Capability, { kind: "subtitles" }> => candidate.kind === "subtitles")) as
+    | Extract<Capability, { kind: "subtitles" }>
+    | undefined;
   assertRequest(!!capability, "subtitles capability is not declared", undefined, traceId);
 
   assertRequest(
@@ -357,15 +385,19 @@ function validateSubtitlesRequest(request: SubtitlesRequest, manifest: Manifest,
 function validatePluginCatalogRequest(
   request: PluginCatalogRequest,
   manifest: Manifest,
+  index?: ManifestIndex,
   traceId?: string,
 ): PluginCatalogRequest {
   checkSupportedSchemaVersion(request.schemaVersion, "request.plugin_catalog", "request", traceId);
   assertRequest(nonBlank(request.catalogID), "catalogID cannot be empty", undefined, traceId);
 
-  const capability = getPluginCatalogCapability(manifest);
+  const capability = (index?.capabilityByKind.plugin_catalog ??
+    manifest.capabilities.find(
+      (candidate): candidate is Extract<Capability, { kind: "plugin_catalog" }> => candidate.kind === "plugin_catalog",
+    )) as Extract<Capability, { kind: "plugin_catalog" }> | undefined;
   assertRequest(!!capability, "plugin_catalog capability is not declared", undefined, traceId);
 
-  const endpoint = asArray(capability.endpoints).find((candidate) => candidate.id === request.catalogID);
+  const endpoint = index?.pluginCatalogEndpointByID.get(request.catalogID) ?? asArray(capability.endpoints).find((candidate) => candidate.id === request.catalogID);
   assertRequest(!!endpoint, `unknown plugin catalog endpoint '${request.catalogID}'`, undefined, traceId);
 
   assertRequest(
@@ -473,19 +505,20 @@ export function validateRequest<K extends ResourceKind>(
   resource: K,
   request: ResourceRequestMap[K],
   manifest: Manifest,
+  index?: ManifestIndex,
   traceId?: string,
 ): ResourceRequestMap[K] {
   switch (resource) {
     case "catalog":
-      return validateCatalogRequest(request as CatalogRequest, manifest, traceId) as ResourceRequestMap[K];
+      return validateCatalogRequest(request as CatalogRequest, manifest, index, traceId) as ResourceRequestMap[K];
     case "meta":
-      return validateMetaRequest(request as MetaRequest, manifest, traceId) as ResourceRequestMap[K];
+      return validateMetaRequest(request as MetaRequest, manifest, index, traceId) as ResourceRequestMap[K];
     case "stream":
-      return validateStreamRequest(request as StreamRequest, manifest, traceId) as ResourceRequestMap[K];
+      return validateStreamRequest(request as StreamRequest, manifest, index, traceId) as ResourceRequestMap[K];
     case "subtitles":
-      return validateSubtitlesRequest(request as SubtitlesRequest, manifest, traceId) as ResourceRequestMap[K];
+      return validateSubtitlesRequest(request as SubtitlesRequest, manifest, index, traceId) as ResourceRequestMap[K];
     case "plugin_catalog":
-      return validatePluginCatalogRequest(request as PluginCatalogRequest, manifest, traceId) as ResourceRequestMap[K];
+      return validatePluginCatalogRequest(request as PluginCatalogRequest, manifest, index, traceId) as ResourceRequestMap[K];
     default:
       throw ProtocolError.requestInvalid(`Unsupported resource '${String(resource)}'`, undefined, traceId);
   }

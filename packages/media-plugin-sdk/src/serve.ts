@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { createServer as createHttpsServer, type ServerOptions as HttpsServerOptions } from "node:https";
 import { serve as nodeServe } from "@hono/node-server";
-import { ProtocolError, type MediaPlugin } from "@streamhub/media-plugin-sdk";
+import { ProtocolError } from "./errors";
+import type { MediaPlugin } from "./plugin";
 import { createServer, type CreateServerOptions } from "./create-server";
+import type { SettingPrimitive } from "./install";
 
 export interface TlsOptions {
   keyPath?: string;
@@ -59,7 +61,10 @@ function resolveHttpsOptions(options: TlsOptions): HttpsServerOptions {
   };
 }
 
-export async function serve(plugin: MediaPlugin, options: ServeOptions = {}): Promise<ServeResult> {
+export async function serve<TSettings extends Record<string, SettingPrimitive>>(
+  plugin: MediaPlugin<TSettings>,
+  options: ServeOptions = {},
+): Promise<ServeResult> {
   const app = createServer(plugin, options);
   const port = options.port ?? 7000;
   const hostname = options.hostname ?? "127.0.0.1";

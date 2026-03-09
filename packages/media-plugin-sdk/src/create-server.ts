@@ -4,17 +4,13 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-  normalizeError,
-  parseJsonWithLimits,
-  ProtocolError,
-  type JsonParseLimits,
-  type MediaPlugin,
-  type ResourceKind,
-  type ResourceRequestMap,
-  validateRequest,
-  validateResponse,
-} from "@streamhub/media-plugin-sdk";
+import { normalizeError, ProtocolError } from "./errors";
+import { parseJsonWithLimits, type JsonParseLimits } from "./schema";
+import type { AnySettingField, InstallOptions, SettingPrimitive } from "./install";
+import { parseInstallSettings } from "./install";
+import type { MediaPlugin } from "./plugin";
+import { validateRequest, validateResponse } from "./validators";
+import type { ResourceKind, ResourceRequestMap } from "./types";
 
 const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -24,13 +20,7 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-const resourcePaths: ResourceKind[] = [
-  "catalog",
-  "meta",
-  "stream",
-  "subtitles",
-  "plugin_catalog",
-];
+const resourcePaths: ResourceKind[] = ["catalog", "meta", "stream", "subtitles", "plugin_catalog"];
 
 export interface FrontendOptions {
   enabled?: boolean;
@@ -51,6 +41,18 @@ export interface CreateServerOptions {
   maxDepth?: number;
   frontend?: FrontendOptions | boolean;
   deeplink?: DeepLinkOptions;
+  installer?: InstallOptions | boolean;
+}
+
+interface NormalizedInstaller {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  description: string;
+  installButtonText: string;
+  openManifestButtonText: string;
+  copyManifestButtonText: string;
+  fields: readonly AnySettingField[];
 }
 
 function normalizePathPrefix(value: string | undefined): string {
@@ -171,9 +173,49 @@ function configureFrontend(app: Hono, prefix: string, options: FrontendOptions):
   });
 }
 
+function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
+  plugin: MediaPlugin<TSettings>,
+  installerOptions: InstallOptions | boolean | undefined,
+): NormalizedInstaller {
+  const base = plugin.install ?? {};
+
+  if (installerOptions === false) {
+    return {
+      enabled: false,
+      title: base.title ?? plugin.manifest.plugin.name,
+      subtitle: base.subtitle ?? plugin.manifest.plugin.version,
+      description:
+        base.description ?? plugin.manifest.plugin.description ?? "Install and configure this plugin before adding it to your app.",
+      installButtonText: base.installButtonText ?? "Install Addon",
+      openManifestButtonText: base.openManifestButtonText ?? "Open Manifest",
+      copyManifestButtonText: base.copyManifestButtonText ?? "Copy Manifest URL",
+      fields: [],
+    };
+  }
+
+  const explicit = typeof installerOptions === "object" ? installerOptions : {};
+  const fields = explicit.fields ?? base.fields ?? [];
+
+  return {
+    enabled: explicit.enabled ?? base.enabled ?? true,
+    title: explicit.title ?? base.title ?? plugin.manifest.plugin.name,
+    subtitle: explicit.subtitle ?? base.subtitle ?? plugin.manifest.plugin.version,
+    description:
+      explicit.description ??
+      base.description ??
+      plugin.manifest.plugin.description ??
+      "Install and configure this plugin before adding it to your app.",
+    installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Addon",
+    openManifestButtonText: explicit.openManifestButtonText ?? base.openManifestButtonText ?? "Open Manifest",
+    copyManifestButtonText: explicit.copyManifestButtonText ?? base.copyManifestButtonText ?? "Copy Manifest URL",
+    fields,
+  };
+}
+
 function buildStudioConfig(
   prefix: string,
   deepLinkOptions: DeepLinkOptions | undefined,
+  installer: NormalizedInstaller,
 ): {
   manifestPath: string;
   deeplink: {
@@ -181,6 +223,7 @@ function buildStudioConfig(
     scheme: string;
     manifestPath: string;
   };
+  installer: NormalizedInstaller;
 } {
   const manifestPath = deepLinkOptions?.manifestPath ?? `${prefix}/manifest.json`;
 
@@ -191,12 +234,17 @@ function buildStudioConfig(
       scheme: deepLinkOptions?.scheme ?? "stremio",
       manifestPath,
     },
+    installer,
   };
 }
 
-export function createServer(plugin: MediaPlugin, options: CreateServerOptions = {}): Hono {
+export function createServer<TSettings extends Record<string, SettingPrimitive>>(
+  plugin: MediaPlugin<TSettings>,
+  options: CreateServerOptions = {},
+): Hono {
   const app = new Hono();
   const prefix = normalizePathPrefix(options.basePath);
+  const installer = normalizeInstaller(plugin, options.installer);
 
   if (options.enableCors !== false) {
     app.use(`${prefix || ""}/*`, cors());
@@ -218,27 +266,28 @@ export function createServer(plugin: MediaPlugin, options: CreateServerOptions =
   app.get(`${prefix}/studio-config.json`, (context) => {
     const traceId = context.req.header("x-trace-id") ?? randomUUID();
     context.header("x-trace-id", traceId);
-    return context.json(buildStudioConfig(prefix, options.deeplink), 200);
+    return context.json(buildStudioConfig(prefix, options.deeplink, installer), 200);
   });
 
   for (const resource of resourcePaths) {
     app.post(`${prefix}/${resource}`, async (context) => {
       const rawBody = await context.req.text();
-      const preliminary = rawBody.length > 0 ? parseJsonWithLimits<unknown>(rawBody, buildParseLimits(options)) : {};
+      const parsedBody = parseJsonWithLimits<unknown>(rawBody || "{}", buildParseLimits(options));
+      const traceId = buildTraceId(context.req.header("x-trace-id"), parsedBody);
 
-      const traceId = buildTraceId(context.req.header("x-trace-id"), preliminary);
       context.header("x-trace-id", traceId);
 
-      const body = parseJsonWithLimits<ResourceRequestMap[typeof resource]>(
-        rawBody || "{}",
-        buildParseLimits(options, traceId),
-      );
+      const body = parsedBody as ResourceRequestMap[typeof resource];
+      const validRequest = validateRequest(resource, body, plugin.manifest, plugin.index, traceId);
+      const settings = parseInstallSettings(installer.fields, new URL(context.req.url).searchParams, traceId) as
+        | Partial<TSettings>
+        | undefined;
 
-      const validRequest = validateRequest(resource, body, plugin.manifest, traceId);
       const response = await plugin.handle(resource, validRequest, {
         traceId,
         headers: Object.fromEntries(context.req.raw.headers),
         request: context.req.raw,
+        ...(settings ? { settings } : {}),
       });
 
       const validResponse = validateResponse(resource, response, traceId) as Record<string, unknown>;

@@ -420,3 +420,9 @@ export interface ResourceResponseMap {
 }
 
 export type HandlerKey = "catalog" | "meta" | "stream" | "subtitles" | "pluginCatalog";
+
+export interface ManifestIndex {
+  readonly capabilityByKind: Readonly<Partial<Record<ResourceKind, Capability>>>;
+  readonly catalogEndpointByID: ReadonlyMap<string, CatalogEndpoint>;
+  readonly pluginCatalogEndpointByID: ReadonlyMap<string, PluginCatalogEndpoint>;
+}
