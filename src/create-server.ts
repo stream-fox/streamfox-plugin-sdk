@@ -22,17 +22,8 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-function resolveModuleDir(): string {
-  if (typeof __dirname === "string") {
-    return __dirname;
-  }
-
-  // Keep import.meta out of the CJS build path to avoid tsup/esbuild warnings.
-  const metaUrl = Function("return import.meta.url")() as string;
-  return path.dirname(fileURLToPath(metaUrl));
-}
-
-const moduleDir = resolveModuleDir();
+const moduleDir =
+  typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 export interface FrontendOptions {
   enabled?: boolean;

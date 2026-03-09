@@ -14,4 +14,10 @@ export default defineConfig({
       js: format === 'cjs' ? '.cjs' : '.js',
     };
   },
+  esbuildOptions(options) {
+    options.logOverride = {
+      ...(options.logOverride ?? {}),
+      "empty-import-meta": "silent",
+    };
+  },
 });
