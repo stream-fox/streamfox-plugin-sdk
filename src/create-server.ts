@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { normalizeError, ProtocolError } from "./errors";
@@ -20,6 +21,9 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
 };
+
+const moduleDir =
+  typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 export interface FrontendOptions {
   enabled?: boolean;
@@ -428,7 +432,7 @@ function setCacheHeaders(response: Record<string, unknown>, headers: Headers): v
 
 function configureFrontend(app: Hono, prefix: string, options: FrontendOptions): void {
   const mountPath = normalizePathPrefix(options.mountPath ?? "/");
-  const distPath = options.distPath ?? path.resolve(__dirname, "ui");
+  const distPath = options.distPath ?? path.resolve(moduleDir, "ui");
 
   if (!existsSync(distPath)) {
     return;
