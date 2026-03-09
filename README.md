@@ -1,6 +1,6 @@
-# StreamHub Node Media Plugin SDK
+# StreamFox Node Plugin SDK
 
-`@streamhub/media-plugin-sdk` is the canonical package for building StreamHub-compatible plugins in Node.js (JS + TS).
+`@streamfox/plugin-sdk` is the canonical package for building StreamFox-compatible plugins in Node.js (JS + TS).
 
 It provides:
 
@@ -13,13 +13,13 @@ It provides:
 ## Install
 
 ```bash
-npm i @streamhub/media-plugin-sdk
+npm i @streamfox/plugin-sdk
 ```
 
 ## 5-Minute TypeScript Plugin
 
 ```ts
-import { definePlugin, serve, settings } from "@streamhub/media-plugin-sdk";
+import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
@@ -66,7 +66,7 @@ console.log("Installer:", url.replace("/manifest", "/"));
 ## 5-Minute JavaScript Plugin
 
 ```js
-import { definePlugin, serve, settings } from "@streamhub/media-plugin-sdk";
+import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
@@ -148,13 +148,13 @@ import {
   validateRequest,
   validateResponse,
   ProtocolError,
-} from "@streamhub/media-plugin-sdk";
+} from "@streamfox/plugin-sdk";
 ```
 
 Or subpath export:
 
 ```ts
-import { validateManifest, validateRequest, validateResponse } from "@streamhub/media-plugin-sdk/advanced";
+import { validateManifest, validateRequest, validateResponse } from "@streamfox/plugin-sdk/advanced";
 ```
 
 ## Local Development
@@ -165,4 +165,4 @@ npm run build
 npm test
 ```
 
-The CLI is maintained as a standalone package/repo (`create-media-plugin`).
+The CLI is maintained as a standalone package/repo (`create-streamfox-plugin`).
