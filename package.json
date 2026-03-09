@@ -1,6 +1,6 @@
 {
   "name": "@streamhub/media-plugin-sdk",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Unified Node SDK for StreamHub media plugins",
   "type": "module",
   "main": "./dist/index.cjs",
