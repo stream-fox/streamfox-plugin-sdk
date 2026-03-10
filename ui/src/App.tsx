@@ -66,7 +66,6 @@ interface StudioConfig {
     logo?: string;
     installButtonText: string;
     openManifestButtonText: string;
-    copyManifestButtonText: string;
     fields: InstallerField[];
   };
 }
@@ -381,7 +380,6 @@ export function App(): JSX.Element {
   }, [baseUrl]);
 
   const fields = config?.installer?.fields ?? [];
-  const activeTheme = themePreference === 'system' ? systemTheme : themePreference;
   const installerTitle = config?.installer.title ?? manifest?.plugin.name ?? 'Plugin Installer';
   const installerDescription =
     config?.installer.description ?? manifest?.plugin.description ?? 'Configure this plugin before installation.';
@@ -425,7 +423,7 @@ export function App(): JSX.Element {
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">StreamFox Installer</p>
@@ -452,7 +450,7 @@ export function App(): JSX.Element {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+        <div>
           <Card className="overflow-hidden shadow-sm">
             <CardHeader className="space-y-5 border-b pb-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -537,93 +535,27 @@ export function App(): JSX.Element {
                     </div>
                   ))
                 )}
+
+                <div className="space-y-4 border-t pt-6">
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold">Install details</h2>
+                    <p className="text-sm text-muted-foreground">Use these links to install and debug the plugin integration flow.</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Manifest URL</p>
+                      <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={configuredManifestUrl.toString()} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Deep Link</p>
+                      <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={installHref ?? 'Deeplink is disabled'} />
+                    </div>
+                  </div>
+                </div>
               </CardContent>
           </Card>
-
-          <div className="space-y-6">
-            <Card className="overflow-hidden shadow-sm">
-                <CardHeader className="space-y-5">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Plugin Summary</p>
-                    <CardTitle className="text-xl">Installation snapshot</CardTitle>
-                    <CardDescription>
-                      Branded summary for what the client will install, with raw links available only when needed.
-                    </CardDescription>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-5">
-                  <div className="rounded-xl border bg-background p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-card">
-                        {brandingLogo ? (
-                          <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-xl font-semibold text-primary">SF</span>
-                        )}
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <p className="truncate text-lg font-semibold">{manifest?.plugin.name ?? installerTitle}</p>
-                        <p className="truncate text-sm text-muted-foreground">{manifest?.plugin.id ?? 'Loading plugin id...'}</p>
-                        <p className="text-sm text-muted-foreground">Version {pluginVersion}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <dl className="space-y-3 rounded-xl border bg-muted/20 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <dt className="text-sm text-muted-foreground">Theme</dt>
-                      <dd className="text-right text-sm font-medium capitalize">{themePreference === 'system' ? `system (${systemTheme})` : activeTheme}</dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <dt className="text-sm text-muted-foreground">Deeplink</dt>
-                      <dd className="text-right text-sm font-medium">{installHref ? config?.deeplink.scheme ?? 'streamfox' : 'disabled'}</dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <dt className="text-sm text-muted-foreground">Capabilities</dt>
-                      <dd className="text-right text-sm font-medium">{capabilityKinds.length > 0 ? capabilityKinds.join(', ') : 'Loading...'}</dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <dt className="text-sm text-muted-foreground">Settings</dt>
-                      <dd className="text-right text-sm font-medium">{fields.length === 0 ? 'none' : `${fields.length} configurable`}</dd>
-                    </div>
-                    {manifest?.plugin.author?.name ? (
-                      <div className="flex items-start justify-between gap-3">
-                        <dt className="text-sm text-muted-foreground">Author</dt>
-                        <dd className="text-right text-sm font-medium">{manifest.plugin.author.name}</dd>
-                      </div>
-                    ) : null}
-                    {manifest?.plugin.homepage ? (
-                      <div className="flex items-start justify-between gap-3">
-                        <dt className="text-sm text-muted-foreground">Homepage</dt>
-                        <dd className="text-right text-sm font-medium">
-                          <a href={manifest.plugin.homepage} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                            Open
-                          </a>
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
-
-                  <details className="group rounded-xl border bg-card p-4">
-                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
-                      Advanced install details
-                    </summary>
-                    <div className="mt-4 space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Manifest URL</p>
-                        <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={configuredManifestUrl.toString()} />
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Deep Link</p>
-                        <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={installHref ?? 'Deeplink is disabled'} />
-                      </div>
-                    </div>
-                  </details>
-                </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </main>

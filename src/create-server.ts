@@ -62,7 +62,6 @@ interface NormalizedInstaller {
   logo?: string;
   installButtonText: string;
   openManifestButtonText: string;
-  copyManifestButtonText: string;
   fields: readonly AnySettingField[];
 }
 
@@ -479,7 +478,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       ...(resolvedLogo !== undefined ? { logo: resolvedLogo } : {}),
       installButtonText: base.installButtonText ?? "Install Plugin",
       openManifestButtonText: base.openManifestButtonText ?? "Open Manifest",
-      copyManifestButtonText: base.copyManifestButtonText ?? "Copy Manifest URL",
       fields: [],
     };
   }
@@ -500,7 +498,6 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
     ...(resolvedExplicitLogo !== undefined ? { logo: resolvedExplicitLogo } : {}),
     installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Plugin",
     openManifestButtonText: explicit.openManifestButtonText ?? base.openManifestButtonText ?? "Open Manifest",
-    copyManifestButtonText: explicit.copyManifestButtonText ?? base.copyManifestButtonText ?? "Copy Manifest URL",
     fields,
   };
 }
