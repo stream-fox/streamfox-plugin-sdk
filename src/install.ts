@@ -85,6 +85,7 @@ export type InferSettings<TFields extends readonly AnySettingField[]> = {
 
 export interface InstallOptions<TFields extends readonly AnySettingField[] = readonly AnySettingField[]> {
   enabled?: boolean;
+  configurationRequired?: boolean;
   title?: string;
   subtitle?: string;
   description?: string;

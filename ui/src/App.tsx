@@ -60,6 +60,7 @@ interface StudioConfig {
   };
   installer: {
     enabled: boolean;
+    configurationRequired: boolean;
     title: string;
     subtitle: string;
     description: string;
@@ -184,6 +185,36 @@ function buildQuery(fields: InstallerField[], values: Record<string, FormValue>)
   }
 
   return params;
+}
+
+function hasMissingRequiredFields(fields: InstallerField[], values: Record<string, FormValue>): boolean {
+  for (const field of fields) {
+    if (!field.required) {
+      continue;
+    }
+
+    const value = values[field.key];
+    const fieldType = field.type ?? 'text';
+    if (fieldType === 'checkbox') {
+      if (value !== true) {
+        return true;
+      }
+      continue;
+    }
+
+    if (fieldType === 'multi_select') {
+      if (normalizeMultiValues(value).length === 0) {
+        return true;
+      }
+      continue;
+    }
+
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function MultiSelectDropdown({
@@ -413,6 +444,8 @@ export function App(): JSX.Element {
     () => (manifest?.capabilities ?? []).map((capability) => capability.kind.replace('_', ' ')),
     [manifest],
   );
+  const requiredFieldsMissing = useMemo(() => hasMissingRequiredFields(fields, values), [fields, values]);
+  const installBlockedByConfig = (config?.installer?.configurationRequired ?? false) && requiredFieldsMissing;
 
   const onFieldChange = (key: string, nextValue: FormValue): void => {
     setValues((previous) => ({
@@ -481,9 +514,15 @@ export function App(): JSX.Element {
 
                   <div className="flex flex-wrap gap-2">
                     {installHref ? (
-                      <a href={installHref}>
-                        <Button variant="default" size="sm">{config?.installer.installButtonText ?? 'Install Plugin'}</Button>
-                      </a>
+                      installBlockedByConfig ? (
+                        <Button variant="default" size="sm" disabled>
+                          {config?.installer.installButtonText ?? 'Install Plugin'}
+                        </Button>
+                      ) : (
+                        <a href={installHref}>
+                          <Button variant="default" size="sm">{config?.installer.installButtonText ?? 'Install Plugin'}</Button>
+                        </a>
+                      )
                     ) : null}
                     <a href={configuredManifestUrl.toString()} target="_blank" rel="noreferrer">
                       <Button variant="secondary" size="sm">{config?.installer.openManifestButtonText ?? 'Open Manifest'}</Button>
@@ -535,6 +574,11 @@ export function App(): JSX.Element {
                     </div>
                   ))
                 )}
+                {installBlockedByConfig ? (
+                  <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100">
+                    Complete all required fields to enable installation.
+                  </div>
+                ) : null}
 
                 <div className="space-y-4 border-t pt-6">
                   <div className="space-y-1">

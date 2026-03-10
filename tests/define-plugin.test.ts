@@ -237,7 +237,7 @@ describe("definePlugin", () => {
         },
         stream: {
           mediaTypes: ["movie"],
-          deliveryKinds: ["direct_url"],
+          supportedTransports: ["http"],
           handler: async () => ({ streams: [] }),
         },
         subtitles: {
@@ -376,5 +376,59 @@ describe("definePlugin", () => {
       mediaType: "movie",
       itemID: "tt123",
     });
+  });
+
+  it("returns redirect responses from handlers", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.redirect",
+        name: "Redirect",
+        version: "1.0.0",
+      },
+      resources: {
+        stream: {
+          mediaTypes: ["movie"],
+          supportedTransports: ["http"],
+          handler: async () => ({
+            redirect: {
+              url: "https://example.com/stream-redirect",
+            },
+          }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request("/stream/movie/tt123");
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://example.com/stream-redirect");
+  });
+
+  it("exposes configurationRequired in studio config", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.configuration-required",
+        name: "Configuration Required",
+        version: "1.0.0",
+      },
+      install: {
+        configurationRequired: true,
+        fields: [settings.text("token", { required: true })],
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request("/studio-config");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.installer.configurationRequired).toBe(true);
   });
 });

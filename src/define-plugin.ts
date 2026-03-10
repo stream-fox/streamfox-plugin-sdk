@@ -1,7 +1,6 @@
 import {
   SCHEMA_VERSION_CURRENT,
   type CatalogEndpoint,
-  type DeliveryKind,
   type ExperimentalField,
   type Manifest,
   type MediaType,
@@ -10,6 +9,7 @@ import {
   type PluginInfo,
   type PluginKindRef,
   type SchemaVersion,
+  type SupportedTransport,
 } from "./types";
 import type { AnySettingField, InferSettings, InstallOptions, SettingPrimitive } from "./install";
 import { createPlugin, type MediaPlugin, type PluginHandler } from "./plugin";
@@ -28,9 +28,7 @@ interface MetaResource<TSettings extends Record<string, SettingPrimitive>> {
 
 interface StreamResource<TSettings extends Record<string, SettingPrimitive>> {
   mediaTypes: MediaType[];
-  deliveryKinds: DeliveryKind[];
-  supportsProxyHeaders?: boolean;
-  supportsInlineSubtitles?: boolean;
+  supportedTransports: SupportedTransport[];
   handler: PluginHandler<"stream", TSettings>;
 }
 
@@ -98,13 +96,7 @@ export function definePlugin<TFields extends readonly AnySettingField[] = readon
     manifestCapabilities.push({
       kind: "stream",
       mediaTypes: resources.stream.mediaTypes,
-      deliveryKinds: resources.stream.deliveryKinds,
-      ...(resources.stream.supportsProxyHeaders !== undefined
-        ? { supportsProxyHeaders: resources.stream.supportsProxyHeaders }
-        : {}),
-      ...(resources.stream.supportsInlineSubtitles !== undefined
-        ? { supportsInlineSubtitles: resources.stream.supportsInlineSubtitles }
-        : {}),
+      supportedTransports: resources.stream.supportedTransports,
     });
     handlers.stream = resources.stream.handler;
   }

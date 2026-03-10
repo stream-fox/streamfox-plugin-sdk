@@ -10,7 +10,7 @@ import { parseJsonWithLimits, type JsonParseLimits } from "./schema";
 import type { AnySettingField, InstallOptions, SettingPrimitive } from "./install";
 import { parseInstallSettings } from "./install";
 import type { MediaPlugin } from "./plugin";
-import { validateRequest, validateResponse } from "./validators";
+import { validateRedirectInstruction, validateRequest, validateResponse } from "./validators";
 import { SCHEMA_VERSION_CURRENT, type RequestPage, type RequestSort, type ResourceKind, type ResourceRequestMap } from "./types";
 import { isRecord } from "./utils";
 
@@ -56,6 +56,7 @@ interface RouteIdentifiers {
 
 interface NormalizedInstaller {
   enabled: boolean;
+  configurationRequired: boolean;
   title: string;
   subtitle: string;
   description: string;
@@ -471,6 +472,7 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
   if (installerOptions === false) {
     return {
       enabled: false,
+      configurationRequired: false,
       title: base.title ?? plugin.manifest.plugin.name,
       subtitle: base.subtitle ?? plugin.manifest.plugin.version,
       description:
@@ -488,6 +490,7 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
 
   return {
     enabled: explicit.enabled ?? base.enabled ?? true,
+    configurationRequired: explicit.configurationRequired ?? base.configurationRequired ?? false,
     title: explicit.title ?? base.title ?? plugin.manifest.plugin.name,
     subtitle: explicit.subtitle ?? base.subtitle ?? plugin.manifest.plugin.version,
     description:
@@ -627,6 +630,17 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
         request: context.req.raw,
         ...(settings ? { settings } : {}),
       });
+
+      if (isRecord(response) && "redirect" in response && response.redirect) {
+        validateRedirectInstruction(response.redirect, traceId);
+        return new Response(null, {
+          status: response.redirect.status ?? 307,
+          headers: {
+            location: response.redirect.url,
+            "x-trace-id": traceId,
+          },
+        });
+      }
 
       const validResponse = validateResponse(route.resource, response, traceId) as Record<string, unknown>;
 

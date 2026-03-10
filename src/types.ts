@@ -20,7 +20,9 @@ export type PluginKindRef = OpenString<
 
 export type FilterValueType = "string" | "int" | "bool" | "stringList" | "intRange";
 export type SortDirection = "ascending" | "descending";
-export type DeliveryKind = "direct_url" | "youtube" | "torrent" | "nzb" | "external";
+export type SupportedTransport = "http" | "youtube" | "torrent" | "usenet" | "archive";
+export type ArchiveFormat = "rar" | "zip" | "7zip" | "tar" | "tgz";
+export type RedirectStatus = 302 | 307;
 
 export interface ExperimentalField {
   namespace: string;
@@ -104,9 +106,7 @@ export interface MetaCapability {
 export interface StreamCapability {
   kind: "stream";
   mediaTypes: MediaType[];
-  deliveryKinds: DeliveryKind[];
-  supportsProxyHeaders?: boolean;
-  supportsInlineSubtitles?: boolean;
+  supportedTransports: SupportedTransport[];
   [key: string]: unknown;
 }
 
@@ -281,23 +281,45 @@ export interface SubtitleTrack {
   [key: string]: unknown;
 }
 
+export interface ProxyHeaders {
+  request?: Record<string, string>;
+  response?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 export interface StreamHints {
   countryWhitelist?: string[];
   bingeGroup?: string;
   filename?: string;
   videoSize?: number;
+  notWebReady?: boolean;
+  proxyHeaders?: ProxyHeaders;
+  videoHash?: string;
   [key: string]: unknown;
 }
 
-export type StreamDelivery =
-  | { kind: "direct_url"; url: string; id?: never; infoHash?: never; fileIndex?: never }
-  | { kind: "youtube"; id: string; url?: never; infoHash?: never; fileIndex?: never }
-  | { kind: "torrent"; infoHash: string; fileIndex?: number; id?: never; url?: never }
-  | { kind: "nzb"; url: string; id?: never; infoHash?: never; fileIndex?: never }
-  | { kind: "external"; url: string; id?: never; infoHash?: never; fileIndex?: never };
+export interface StreamFileSource {
+  url: string;
+  bytes?: number;
+  [key: string]: unknown;
+}
+
+export interface StreamSelection {
+  fileIndex?: number;
+  fileMustInclude?: string;
+  [key: string]: unknown;
+}
+
+export type StreamTransport =
+  | { kind: "http"; url: string; mode?: "stream" | "external" }
+  | { kind: "youtube"; id: string }
+  | { kind: "torrent"; infoHash: string; peerDiscovery?: string[] }
+  | { kind: "usenet"; nzbURL: string; servers?: string[] }
+  | { kind: "archive"; format: ArchiveFormat; files: StreamFileSource[] };
 
 export interface StreamSource {
-  delivery: StreamDelivery;
+  transport: StreamTransport;
+  selection?: StreamSelection;
   name?: string;
   description?: string;
   subtitles?: SubtitleTrack[];
@@ -328,6 +350,7 @@ export interface VideoUnit {
   episode?: number;
   overview?: string;
   streams?: StreamSource[];
+  trailers?: StreamSource[];
   [key: string]: unknown;
 }
 
@@ -341,6 +364,8 @@ export interface MediaDetail {
   awards?: string;
   website?: string;
   videos?: VideoUnit[];
+  defaultVideoID?: string;
+  trailers?: StreamSource[];
   [key: string]: unknown;
 }
 
@@ -351,11 +376,18 @@ export interface ResponsePage {
   [key: string]: unknown;
 }
 
+export interface RedirectInstruction {
+  url: string;
+  status?: RedirectStatus;
+  [key: string]: unknown;
+}
+
 export interface CatalogResponse {
   schemaVersion: SchemaVersion;
   items?: MediaSummary[];
   page?: ResponsePage;
   cache?: CachePolicy;
+  redirect?: RedirectInstruction;
   experimental?: ExperimentalField[];
   [key: string]: unknown;
 }
@@ -364,6 +396,7 @@ export interface MetaResponse {
   schemaVersion: SchemaVersion;
   item?: MediaDetail | null;
   cache?: CachePolicy;
+  redirect?: RedirectInstruction;
   experimental?: ExperimentalField[];
   [key: string]: unknown;
 }
@@ -372,6 +405,7 @@ export interface StreamsResponse {
   schemaVersion: SchemaVersion;
   streams?: StreamSource[];
   cache?: CachePolicy;
+  redirect?: RedirectInstruction;
   experimental?: ExperimentalField[];
   [key: string]: unknown;
 }
@@ -380,7 +414,14 @@ export interface SubtitlesResponse {
   schemaVersion: SchemaVersion;
   subtitles?: SubtitleTrack[];
   cache?: CachePolicy;
+  redirect?: RedirectInstruction;
   experimental?: ExperimentalField[];
+  [key: string]: unknown;
+}
+
+export interface PluginDistribution {
+  transport: string;
+  manifestURL: string;
   [key: string]: unknown;
 }
 
@@ -391,6 +432,8 @@ export interface PluginCard {
   description?: string;
   manifestURL?: string;
   pluginKinds?: PluginKindRef[];
+  distribution?: PluginDistribution;
+  manifestSnapshot?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -399,6 +442,7 @@ export interface PluginCatalogResponse {
   plugins?: PluginCard[];
   page?: ResponsePage;
   cache?: CachePolicy;
+  redirect?: RedirectInstruction;
   experimental?: ExperimentalField[];
   [key: string]: unknown;
 }

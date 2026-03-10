@@ -1,14 +1,14 @@
 # StreamFox Plugin SDK
 
-`@streamfox/plugin-sdk` is the Node.js SDK for building StreamFox-compatible media plugins.
+`@streamfox/plugin-sdk` is the Node.js SDK for StreamFox remote plugins.
 
-It provides:
+It includes:
 
-- `definePlugin(...)` for a compact plugin definition flow
-- built-in HTTP hosting with `createServer(...)` and `serve(...)`
-- schema-v1 request, manifest, and response validation
-- installer UI and typed settings helpers
-- a contract aligned with `swift-media-plugin-kit`
+- declarative plugin contract with `definePlugin(...)`
+- runtime server with `createServer(...)` / `serve(...)`
+- strict schema-major validation (`schemaVersion.major === 1`)
+- built-in installer UI and typed settings parsing
+- canonical contract parity with `swift-media-plugin-kit`
 
 ## Install
 
@@ -18,82 +18,55 @@ npm i @streamfox/plugin-sdk
 
 ## Quick Start
 
-### TypeScript
-
 ```ts
-import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
+import { definePlugin, serve } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
-    id: "org.example.demo-subtitles",
-    name: "Demo Subtitles",
-    version: "1.0.0",
-    description: "Simple subtitles plugin",
-  },
-  install: {
-    title: "Subtitle Settings",
-    logo: "https://cdn.example.com/subtitles-logo.png",
-    fields: [
-      settings.text("languages", { defaultValue: "en,el", placeholder: "en,el" }),
-      settings.checkbox("includeHI", { defaultValue: true }),
-      settings.number("maxLinks", { defaultValue: 20, min: 1, max: 200 }),
-    ],
+    id: "com.example.demo",
+    name: "Demo",
+    version: "0.1.0",
   },
   resources: {
-    subtitles: {
-      mediaTypes: ["movie", "episode"],
-      defaultLanguages: ["en"],
-      handler: async (request, { settings }) => {
-        const preferred =
-          typeof settings.languages === "string"
-            ? settings.languages.split(",").map((v) => v.trim()).filter(Boolean)
-            : (request.languagePreferences ?? []);
-
-        void preferred;
-        void settings.includeHI;
-        void settings.maxLinks;
-
-        return {
-          subtitles: [],
-        };
-      },
-    },
-  },
-});
-
-const { url } = await serve(plugin, { port: 7000 });
-console.log("Manifest:", url);
-console.log("Installer:", url.replace("/manifest", "/"));
-```
-
-### JavaScript
-
-```js
-import { definePlugin, serve, settings } from "@streamfox/plugin-sdk";
-
-const plugin = definePlugin({
-  plugin: {
-    id: "org.example.demo-meta",
-    name: "Demo Meta",
-    version: "1.0.0",
-  },
-  install: {
-    fields: [settings.password("token")],
-  },
-  resources: {
-    meta: {
+    stream: {
       mediaTypes: ["movie"],
+      supportedTransports: ["http", "torrent", "youtube"],
       handler: async () => ({
-        item: null,
+        streams: [
+          {
+            transport: { kind: "http", url: "https://cdn.example.com/movie.mp4", mode: "stream" },
+          },
+        ],
       }),
     },
   },
 });
 
-await serve(plugin, { port: 7000 });
+const server = await serve(plugin, {
+  port: 7000,
+  integration: {
+    installScheme: "streamfox",
+    launchBaseURL: "https://streamfox.app/#",
+    autoOpen: "none",
+  },
+});
+
+console.log(server.url);       // manifest URL
+console.log(server.installURL); // install deeplink
+console.log(server.launchURL);  // launch URL
 ```
 
-## HTTP Contract
+## Validation Lifecycle
+
+Validation runs automatically in three phases:
+
+1. `createPlugin(...)` / `definePlugin(...)`: manifest + capability shape validation.
+2. Incoming request handling (`createServer` routes): request validation against manifest capabilities.
+3. Outgoing handler responses: response validation before JSON emission.
+
+Redirect responses are validated too (`redirect.url`, `redirect.status`) before the redirect is returned.
+
+## Canonical Routes
 
 - `GET /manifest`
 - `GET /studio-config`
@@ -103,54 +76,13 @@ await serve(plugin, { port: 7000 });
 - `GET /subtitles/:mediaType/:itemID`
 - `GET /plugin_catalog/:catalogID/:pluginKind`
 
-All resource requests are validated against schema v1 contracts.
+## Docs
 
-## Settings
-
-Installer/settings values are read from request query params and parsed before handlers run.
-
-- Query key uses `field.queryParam` if provided, else `field.key`.
-- Missing values use field `defaultValue` when provided.
-- `required: true` fields return `400 REQUEST_INVALID` when absent.
-- Number/select/boolean fields are type-validated before handler execution.
-- `multiSelect` fields are parsed as string arrays (supports repeated query keys and comma-separated values).
-
-In handlers, read values from `context.settings`.
-
-## Installer Branding
-
-`install.logo` lets you brand the built-in installer UI:
-
-- `logo`: icon/logo image URL shown in the installer card
-
-If `install.logo` is omitted, the UI falls back to `manifest.plugin.logo` when present.
-
-## HTTPS and Deeplinks
-
-```ts
-await serve(plugin, {
-  protocol: "https",
-  tls: {
-    keyPath: "./certs/dev.key",
-    certPath: "./certs/dev.crt",
-  },
-  deeplink: {
-    enabled: true,
-    scheme: "streamfox",
-  },
-});
-```
-
-## Migration
-
-- Old: `createPlugin({ manifest, handlers })`
-- New primary: `definePlugin({ plugin, resources, install })`
-
-You can still use `createPlugin` directly for advanced/manual manifest workflows.
+- [Plugin Contract](./docs/plugin-contract.md)
+- [Runtime + Serve Options](./docs/runtime-options.md)
+- [Install + Settings](./docs/install-settings.md)
 
 ## Advanced API
-
-Use these when you need low-level control:
 
 ```ts
 import {
@@ -162,7 +94,7 @@ import {
 } from "@streamfox/plugin-sdk";
 ```
 
-Or subpath export:
+Subpath export is also available:
 
 ```ts
 import { validateManifest, validateRequest, validateResponse } from "@streamfox/plugin-sdk/advanced";
@@ -175,5 +107,3 @@ npm install
 npm run build
 npm test
 ```
-
-The companion scaffolder lives in `create-streamfox-plugin`.

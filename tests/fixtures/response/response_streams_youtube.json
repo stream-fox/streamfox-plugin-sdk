@@ -2,7 +2,7 @@
   "schemaVersion": {"major": 1, "minor": 0},
   "streams": [
     {
-      "delivery": {"kind": "youtube", "id": "yt123"},
+      "transport": {"kind": "youtube", "id": "yt123"},
       "name": "YouTube"
     }
   ]

@@ -93,6 +93,7 @@ describe("response parity", () => {
       "response_streams_youtube",
       "response_streams_torrent",
       "response_streams_nzb",
+      "response_streams_archive",
       "response_streams_external",
       "response_streams_unknown_key",
     ] as const;
@@ -101,6 +102,31 @@ describe("response parity", () => {
       const streams = fixture<ResourceResponseMap["stream"]>("response", fixtureName);
       expect(() => validateResponse("stream", streams)).not.toThrow();
     }
+  });
+
+  it("rejects proxyHeaders when notWebReady is missing", () => {
+    const invalid = fixture<ResourceResponseMap["stream"]>("response", "response_streams_direct");
+    invalid.streams = [
+      {
+        transport: { kind: "http", url: "https://cdn.example.com/video.mp4" },
+        hints: {
+          proxyHeaders: {
+            request: { "User-Agent": "StreamFox" },
+          },
+        },
+      },
+    ];
+
+    expect(() => validateResponse("stream", invalid)).toThrow(ProtocolError);
+  });
+
+  it("rejects invalid defaultVideoID reference", () => {
+    const invalid = fixture<ResourceResponseMap["meta"]>("response", "response_meta_valid");
+    if (invalid.item) {
+      invalid.item.defaultVideoID = "missing-video";
+    }
+
+    expect(() => validateResponse("meta", invalid)).toThrow(ProtocolError);
   });
 });
 

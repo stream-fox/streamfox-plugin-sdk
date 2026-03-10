@@ -1,0 +1,86 @@
+# Runtime + Serve Options
+
+## `createServer(plugin, options)`
+
+`CreateServerOptions`:
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `basePath` | `string` | `""` | Prefix for all routes. |
+| `enableCors` | `boolean` | `true` | Enables CORS middleware. |
+| `maxPayloadBytes` | `number` | SDK default | Limit for JSON query payload parsing. |
+| `maxDepth` | `number` | SDK default | Max JSON nesting depth. |
+| `frontend` | `boolean \| { enabled?, mountPath?, distPath? }` | enabled | Installer/static UI behavior. |
+| `deeplink` | `{ enabled?, scheme?, manifestPath? }` | enabled | Controls studio-config deeplink metadata. |
+| `installer` | `boolean \| InstallOptions` | enabled | Built-in installer settings. |
+
+## `serve(plugin, options)`
+
+`serve` wraps `createServer` and starts an HTTP/HTTPS server.
+
+`ServeOptions` extends `CreateServerOptions` with:
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `port` | `number` | `7000` |
+| `hostname` | `string` | `127.0.0.1` |
+| `protocol` | `"http" \| "https"` | auto (`http`, unless TLS provided) |
+| `tls` | `TlsOptions` | none |
+| `integration` | `IntegrationOptions` | defaults below |
+
+`TlsOptions`:
+
+- file paths: `keyPath`, `certPath`, `caPath`
+- inline buffers/strings: `key`, `cert`, `ca`
+- optional `passphrase`
+
+`IntegrationOptions`:
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `installScheme` | `string` | `streamfox` |
+| `launchBaseURL` | `string` | `https://streamfox.app/#` |
+| `autoOpen` | `"none" \| "install" \| "launch"` | `none` |
+| `openURL` | `(url: string) => void \| Promise<void>` | system opener |
+
+## `ServeResult`
+
+`serve(...)` returns:
+
+- `url`: manifest URL
+- `installURL`: install deeplink (`<installScheme>://.../manifest`)
+- `launchURL`: launch URL (`launchBaseURL + addonOpen=<manifestURL>`)
+- `app`, `server`, `close()`
+
+## Request Mapping Inputs
+
+Routes are canonical; query params can provide extra data.
+
+Common query payload keys:
+
+- `schemaVersion` (JSON object)
+- `context` (JSON object)
+- `experimental` (JSON array)
+- `request` (full JSON request override; path params still win for canonical identifiers)
+
+Catalog-specific:
+
+- `query`
+- `filters` (JSON array)
+- `sort` (JSON object) or `sortKey` + `sortDirection`
+- `page` (JSON object) or `pageIndex` + `pageSize`
+
+Stream-specific:
+
+- `videoID`
+- `playback` (JSON object)
+
+Subtitles-specific:
+
+- `videoFingerprint` (JSON object)
+- `languagePreferences` (repeated keys and comma-separated both supported)
+
+Plugin catalog-specific:
+
+- `query`
+- `page` or `pageIndex` + `pageSize`

@@ -2,8 +2,9 @@
   "schemaVersion": {"major": 1, "minor": 0},
   "streams": [
     {
-      "delivery": {"kind": "direct_url", "url": "https://cdn.example.com/video.mp4"},
-      "name": "1080p"
+      "transport": {"kind": "http", "url": "https://cdn.example.com/video.mp4", "mode": "stream"},
+      "name": "1080p",
+      "hints": {"notWebReady": true, "proxyHeaders": {"request": {"User-Agent": "StreamFox"}}}
     }
   ]
 }

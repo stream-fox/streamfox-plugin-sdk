@@ -14,6 +14,7 @@ import {
   type MetaResponse,
   type PluginCatalogRequest,
   type PluginCatalogResponse,
+  type RedirectInstruction,
   type RequestFilter,
   type RequestPage,
   type RequestSort,
@@ -21,6 +22,7 @@ import {
   type ResourceRequestMap,
   type ResourceResponseMap,
   type SchemaVersion,
+  type StreamCapability,
   type StreamRequest,
   type StreamsResponse,
   type StreamSource,
@@ -35,6 +37,8 @@ import {
 } from "./utils";
 
 const SEMVER_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/;
+const SUPPORTED_TRANSPORTS = new Set(["http", "youtube", "torrent", "usenet", "archive"]);
+const ARCHIVE_FORMATS = new Set(["rar", "zip", "7zip", "tar", "tgz"]);
 
 function assertManifest(condition: boolean, message: string, details?: unknown): asserts condition {
   if (!condition) {
@@ -111,9 +115,16 @@ function validateManifestMetaCapability(capability: Extract<Capability, { kind: 
   assertManifest(asArray(capability.mediaTypes).length > 0, "Meta capability must declare media types");
 }
 
-function validateManifestStreamCapability(capability: Extract<Capability, { kind: "stream" }>): void {
+function validateManifestStreamCapability(capability: StreamCapability): void {
   assertManifest(asArray(capability.mediaTypes).length > 0, "Stream capability must declare media types");
-  assertManifest(asArray(capability.deliveryKinds).length > 0, "Stream capability must declare at least one delivery kind");
+  const supportedTransports = asArray(capability.supportedTransports);
+  assertManifest(supportedTransports.length > 0, "Stream capability must declare at least one supported transport");
+  const seen = new Set<string>();
+  for (const transport of supportedTransports) {
+    assertManifest(SUPPORTED_TRANSPORTS.has(transport), `Unsupported transport '${transport}' in stream capability`);
+    assertManifest(!seen.has(transport), `Transport '${transport}' is duplicated in stream capability`);
+    seen.add(transport);
+  }
 }
 
 function validateManifestSubtitlesCapability(capability: Extract<Capability, { kind: "subtitles" }>): void {
@@ -424,6 +435,20 @@ function validateMediaSummary(summary: MediaSummary, traceId?: string): void {
 function validateVideoUnit(video: VideoUnit, traceId?: string): void {
   assertResponse(nonBlank(video.id), "video.id cannot be empty", undefined, traceId);
   assertResponse(nonBlank(video.title), "video.title cannot be empty", undefined, traceId);
+  for (const stream of asArray(video.streams)) {
+    validateStreamSource(stream, traceId);
+  }
+  for (const trailer of asArray(video.trailers)) {
+    validateStreamSource(trailer, traceId);
+  }
+}
+
+function validateStringMap(value: unknown, fieldName: string, traceId?: string): void {
+  assertResponse(isRecord(value), `${fieldName} must be an object`, undefined, traceId);
+  for (const [key, headerValue] of Object.entries(value as Record<string, unknown>)) {
+    assertResponse(nonBlank(key), `${fieldName} contains blank header name`, undefined, traceId);
+    assertResponse(typeof headerValue === "string" && nonBlank(headerValue), `${fieldName} '${key}' must be a non-empty string`, undefined, traceId);
+  }
 }
 
 function validateStreamSource(stream: StreamSource, traceId?: string): void {
@@ -431,26 +456,98 @@ function validateStreamSource(stream: StreamSource, traceId?: string): void {
     assertResponse(nonBlank(stream.name), "stream name cannot be blank", undefined, traceId);
   }
 
-  const delivery = stream.delivery;
-  switch (delivery.kind) {
-    case "direct_url":
-    case "nzb":
-    case "external":
-      assertResponse(nonBlank(delivery.url), "stream URL cannot be empty", undefined, traceId);
+  if (stream.selection?.fileIndex !== undefined) {
+    assertResponse(Number.isInteger(stream.selection.fileIndex), "stream selection fileIndex must be an integer", undefined, traceId);
+    assertResponse(stream.selection.fileIndex >= 0, "stream selection fileIndex must be >= 0", undefined, traceId);
+  }
+
+  if (stream.selection?.fileMustInclude !== undefined) {
+    assertResponse(nonBlank(stream.selection.fileMustInclude), "stream selection fileMustInclude cannot be blank", undefined, traceId);
+  }
+
+  const transport = stream.transport;
+  switch (transport.kind) {
+    case "http":
+      assertResponse(nonBlank(transport.url), "http transport url cannot be empty", undefined, traceId);
+      if (transport.mode !== undefined) {
+        assertResponse(
+          transport.mode === "stream" || transport.mode === "external",
+          "http transport mode must be 'stream' or 'external'",
+          undefined,
+          traceId,
+        );
+      }
       break;
     case "youtube":
-      assertResponse(nonBlank(delivery.id), "youtube id cannot be empty", undefined, traceId);
+      assertResponse(nonBlank(transport.id), "youtube transport id cannot be empty", undefined, traceId);
       break;
     case "torrent":
-      assertResponse(nonBlank(delivery.infoHash), "torrent infoHash cannot be empty", undefined, traceId);
+      assertResponse(nonBlank(transport.infoHash), "torrent transport infoHash cannot be empty", undefined, traceId);
+      for (const source of asArray(transport.peerDiscovery)) {
+        assertResponse(nonBlank(source), "torrent peerDiscovery cannot contain blank values", undefined, traceId);
+      }
+      break;
+    case "usenet":
+      assertResponse(nonBlank(transport.nzbURL), "usenet transport nzbURL cannot be empty", undefined, traceId);
+      for (const server of asArray(transport.servers)) {
+        assertResponse(nonBlank(server), "usenet transport servers cannot contain blank values", undefined, traceId);
+      }
+      break;
+    case "archive":
+      assertResponse(ARCHIVE_FORMATS.has(transport.format), "archive transport format is invalid", transport.format, traceId);
+      assertResponse(asArray(transport.files).length > 0, "archive transport must contain at least one file", undefined, traceId);
+      for (const file of asArray(transport.files)) {
+        assertResponse(nonBlank(file.url), "archive transport file url cannot be empty", undefined, traceId);
+        if (file.bytes !== undefined) {
+          assertResponse(Number.isInteger(file.bytes), "archive transport file bytes must be an integer", undefined, traceId);
+          assertResponse(file.bytes > 0, "archive transport file bytes must be > 0", undefined, traceId);
+        }
+      }
       break;
     default:
-      assertResponse(false, "stream delivery kind is invalid", delivery, traceId);
+      assertResponse(false, "stream transport kind is invalid", transport, traceId);
+  }
+
+  if (stream.hints?.videoHash !== undefined) {
+    assertResponse(nonBlank(stream.hints.videoHash), "stream hints videoHash cannot be blank", undefined, traceId);
+  }
+
+  for (const country of asArray(stream.hints?.countryWhitelist)) {
+    assertResponse(nonBlank(country), "stream hints countryWhitelist cannot contain blank values", undefined, traceId);
+  }
+
+  if (stream.hints?.proxyHeaders !== undefined) {
+    assertResponse(stream.hints.notWebReady === true, "proxyHeaders require hints.notWebReady to be true", undefined, traceId);
+    if (stream.hints.proxyHeaders.request !== undefined) {
+      validateStringMap(stream.hints.proxyHeaders.request, "proxyHeaders.request", traceId);
+    }
+    if (stream.hints.proxyHeaders.response !== undefined) {
+      validateStringMap(stream.hints.proxyHeaders.response, "proxyHeaders.response", traceId);
+    }
+  }
+}
+
+export function validateRedirectInstruction(redirect: RedirectInstruction | undefined, traceId?: string): void {
+  if (!redirect) {
+    return;
+  }
+
+  assertResponse(nonBlank(redirect.url), "redirect url cannot be empty", undefined, traceId);
+  try {
+    // eslint-disable-next-line no-new
+    new URL(redirect.url);
+  } catch {
+    throw ProtocolError.responseInvalid("redirect url must be an absolute URL", { url: redirect.url }, traceId);
+  }
+
+  if (redirect.status !== undefined) {
+    assertResponse(redirect.status === 302 || redirect.status === 307, "redirect status must be 302 or 307", undefined, traceId);
   }
 }
 
 function validateCatalogResponse(response: CatalogResponse, traceId?: string): CatalogResponse {
   checkSupportedSchemaVersion(response.schemaVersion, "response.catalog", "response", traceId);
+  validateRedirectInstruction(response.redirect, traceId);
   for (const item of asArray(response.items)) {
     validateMediaSummary(item, traceId);
   }
@@ -459,6 +556,7 @@ function validateCatalogResponse(response: CatalogResponse, traceId?: string): C
 
 function validateMetaResponse(response: MetaResponse, traceId?: string): MetaResponse {
   checkSupportedSchemaVersion(response.schemaVersion, "response.meta", "response", traceId);
+  validateRedirectInstruction(response.redirect, traceId);
   const item = response.item;
   if (!item) {
     return response;
@@ -466,8 +564,21 @@ function validateMetaResponse(response: MetaResponse, traceId?: string): MetaRes
 
   const detail = item as MediaDetail;
   validateMediaSummary(detail.summary, traceId);
-  for (const video of asArray(detail.videos)) {
+
+  const videos = asArray(detail.videos);
+  for (const video of videos) {
     validateVideoUnit(video, traceId);
+  }
+
+  for (const trailer of asArray(detail.trailers)) {
+    validateStreamSource(trailer, traceId);
+  }
+
+  if (detail.defaultVideoID !== undefined) {
+    assertResponse(nonBlank(detail.defaultVideoID), "defaultVideoID cannot be blank", undefined, traceId);
+    if (videos.length > 0) {
+      assertResponse(videos.some((video) => video.id === detail.defaultVideoID), "defaultVideoID must reference an existing video id", undefined, traceId);
+    }
   }
 
   return response;
@@ -475,6 +586,7 @@ function validateMetaResponse(response: MetaResponse, traceId?: string): MetaRes
 
 function validateStreamsResponse(response: StreamsResponse, traceId?: string): StreamsResponse {
   checkSupportedSchemaVersion(response.schemaVersion, "response.streams", "response", traceId);
+  validateRedirectInstruction(response.redirect, traceId);
   for (const stream of asArray(response.streams)) {
     validateStreamSource(stream, traceId);
   }
@@ -483,6 +595,7 @@ function validateStreamsResponse(response: StreamsResponse, traceId?: string): S
 
 function validateSubtitlesResponse(response: SubtitlesResponse, traceId?: string): SubtitlesResponse {
   checkSupportedSchemaVersion(response.schemaVersion, "response.subtitles", "response", traceId);
+  validateRedirectInstruction(response.redirect, traceId);
   for (const subtitle of asArray(response.subtitles)) {
     assertResponse(nonBlank(subtitle.id), "subtitle.id cannot be empty", undefined, traceId);
     assertResponse(nonBlank(subtitle.url), "subtitle.url cannot be empty", undefined, traceId);
@@ -493,10 +606,20 @@ function validateSubtitlesResponse(response: SubtitlesResponse, traceId?: string
 
 function validatePluginCatalogResponse(response: PluginCatalogResponse, traceId?: string): PluginCatalogResponse {
   checkSupportedSchemaVersion(response.schemaVersion, "response.plugin_catalog", "response", traceId);
+  validateRedirectInstruction(response.redirect, traceId);
   for (const plugin of asArray(response.plugins)) {
     assertResponse(nonBlank(plugin.id), "plugin.id cannot be empty", undefined, traceId);
     assertResponse(nonBlank(plugin.name), "plugin.name cannot be empty", undefined, traceId);
     assertResponse(nonBlank(plugin.version), "plugin.version cannot be empty", undefined, traceId);
+
+    if (plugin.distribution !== undefined) {
+      assertResponse(nonBlank(plugin.distribution.transport), "plugin distribution transport cannot be empty", undefined, traceId);
+      assertResponse(nonBlank(plugin.distribution.manifestURL), "plugin distribution manifestURL cannot be empty", undefined, traceId);
+    }
+
+    if (plugin.manifestSnapshot !== undefined) {
+      assertResponse(isRecord(plugin.manifestSnapshot), "plugin manifestSnapshot must be an object", undefined, traceId);
+    }
   }
   return response;
 }

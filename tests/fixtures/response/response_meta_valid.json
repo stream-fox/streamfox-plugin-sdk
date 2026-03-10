@@ -8,11 +8,26 @@
       "genres": [],
       "links": []
     },
+    "defaultVideoID": "vid1",
+    "trailers": [
+      {
+        "transport": {"kind": "youtube", "id": "trailer123"}
+      }
+    ],
     "videos": [
       {
         "id": "vid1",
         "title": "Main video",
-        "streams": []
+        "streams": [
+          {
+            "transport": {"kind": "http", "url": "https://cdn.example.com/movie.mp4"}
+          }
+        ],
+        "trailers": [
+          {
+            "transport": {"kind": "youtube", "id": "videoTrailer123"}
+          }
+        ]
       }
     ]
   }

@@ -2,7 +2,8 @@
   "schemaVersion": {"major": 1, "minor": 0},
   "streams": [
     {
-      "delivery": {"kind": "torrent", "infoHash": "abcdef", "fileIndex": 1},
+      "transport": {"kind": "torrent", "infoHash": "abcdef", "peerDiscovery": ["tracker:udp://tracker.example.com:80"]},
+      "selection": {"fileIndex": 1},
       "name": "Torrent"
     }
   ]

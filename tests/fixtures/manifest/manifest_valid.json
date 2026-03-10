@@ -32,9 +32,7 @@
     {
       "kind": "stream",
       "mediaTypes": ["movie"],
-      "deliveryKinds": ["direct_url", "torrent"],
-      "supportsProxyHeaders": true,
-      "supportsInlineSubtitles": true
+      "supportedTransports": ["http", "torrent"]
     },
     {
       "kind": "subtitles",

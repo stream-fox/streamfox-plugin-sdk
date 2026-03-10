@@ -5,7 +5,14 @@
       "id": "com.example.a",
       "name": "Example A",
       "version": "1.0.0",
-      "pluginKinds": ["catalog", "meta"]
+      "pluginKinds": ["catalog", "meta"],
+      "distribution": {
+        "transport": "https",
+        "manifestURL": "https://plugins.example.com/a/manifest"
+      },
+      "manifestSnapshot": {
+        "plugin": {"id": "com.example.a"}
+      }
     }
   ]
 }
