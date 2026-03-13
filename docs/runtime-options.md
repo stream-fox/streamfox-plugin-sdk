@@ -8,8 +8,6 @@
 | ----------------- | ------------------------------------------------------------------ | ----------- | ----------------------------------------- |
 | `basePath`        | `string`                                                           | `""`        | Prefix for all routes.                    |
 | `enableCors`      | `boolean`                                                          | `true`      | Enables CORS middleware.                  |
-| `maxPayloadBytes` | `number`                                                           | SDK default | Limit for JSON query payload parsing.     |
-| `maxDepth`        | `number`                                                           | SDK default | Max JSON nesting depth.                   |
 | `frontend`        | `boolean \| { enabled?, mountPath?, assetsMountPath?, distPath? }` | enabled     | Installer/static UI behavior.             |
 | `deeplink`        | `{ enabled?, scheme?, manifestPath? }`                             | enabled     | Controls studio-config deeplink metadata. |
 | `installer`       | `boolean \| InstallOptions`                                        | enabled     | Built-in installer settings.              |
@@ -98,31 +96,49 @@ Notes:
 
 Routes are canonical; query params can provide extra data.
 
+`createServer(...)` no longer exposes JSON payload size/depth options for GET resource request parsing. If you need JSON payload limit utilities, use the schema helpers exported by the SDK (`parseJsonWithLimits`, `JsonParseLimits`, `maximumJsonNestingDepth`).
+
 Common query payload keys:
 
-- `schemaVersion` (JSON object)
-- `context` (JSON object)
-- `experimental` (JSON array)
-- `request` (full JSON request override; path params still win for canonical identifiers)
+- `schemaMajor` + `schemaMinor`
+- `locale`
+- `regionCode`
+- `traceID`
+- `experimental` using repeated keys or comma-separated `namespace:key[:value]` tokens
 
 Catalog-specific:
 
 - `query`
-- `filters` (JSON array)
-- `sort` (JSON object) or `sortKey` + `sortDirection`
-- `page` (JSON object) or `pageIndex` + `pageSize`
+- declared filter aliases, such as `genre=Action`, `year=2024`, `language=el`
+- `sortKey` + `sortDirection`
+- `page` + `pageSize`
+- `pageIndex` + `pageSize`
 
 Stream-specific:
 
 - `videoID`
-- `playback` (JSON object)
+- `startPositionSeconds`
+- `networkProfile`
 
 Subtitles-specific:
 
-- `videoFingerprint` (JSON object)
+- `videoHash`
+- `videoSize`
+- `filename`
 - `languagePreferences` (repeated keys and comma-separated both supported)
 
 Plugin catalog-specific:
 
 - `query`
-- `page` or `pageIndex` + `pageSize`
+- `page` + `pageSize`
+- `pageIndex` + `pageSize`
+
+Legacy structured request params such as `request`, `schemaVersion`, `context`, `experimental`, `filters`, `sort`, `playback`, and `videoFingerprint` are not accepted on GET resource routes. The SDK uses one HTTP style now: canonical path params plus plain query aliases.
+
+Examples:
+
+- `/catalog/movie/popular?genre=Action&year=2024&locale=el-GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc`
+- `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
+- `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
+- `/subtitles/movie/tt0133093?videoHash=abc123&videoSize=1234567&filename=matrix.mkv&languagePreferences=en,el`
+- `/plugin_catalog/featured/catalog?page=0&experimental=streamfox:beta`

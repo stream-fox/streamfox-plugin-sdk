@@ -170,7 +170,7 @@ describe("definePlugin", () => {
     expect(body.error.code).toBe("REQUEST_INVALID");
   });
 
-  it("rejects malformed schemaVersion query parameter", async () => {
+  it("requires schemaMajor and schemaMinor together when overriding schema version", async () => {
     const plugin = definePlugin({
       plugin: {
         id: "com.example.schema-query-validation",
@@ -188,16 +188,13 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const malformed = encodeURIComponent(JSON.stringify({ major: 1 }));
-    const response = await app.request(
-      `/meta/movie/tt125?schemaVersion=${malformed}`,
-    );
+    const response = await app.request("/meta/movie/tt125?schemaMajor=1");
 
     expect(response.status).toBe(400);
 
     const body = await response.json();
     expect(body.error.code).toBe("REQUEST_INVALID");
-    expect(body.error.message).toContain("schemaVersion");
+    expect(body.error.message).toContain("schemaMajor");
   });
 
   it("returns 404 for legacy .json and flat resource endpoints", async () => {
@@ -403,6 +400,269 @@ describe("definePlugin", () => {
       mediaType: "movie",
       itemID: "tt123",
     });
+  });
+
+  it("parses catalog aliases into the canonical request shape", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.catalog-aliases",
+        name: "Catalog Aliases",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "popular",
+              name: "Popular",
+              mediaTypes: ["movie"],
+              filters: [
+                { key: "genre", valueType: "string" },
+                { key: "year", valueType: "intRange" },
+                { key: "language", valueType: "string" },
+              ],
+            },
+          ],
+          handler: async (request) => {
+            captured = request;
+            return { items: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request(
+      "/catalog/movie/popular?genre=Action&year=2024&language=Greek%20(el)&locale=el-GR&regionCode=GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc&query=matrix&ignored=value",
+    );
+
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "popular",
+      mediaType: "movie",
+      query: "matrix",
+      page: { index: 0, size: 20 },
+      sort: { key: "popularity", direction: "descending" },
+      filters: [
+        { key: "genre", value: { kind: "string", string: "Action" } },
+        {
+          key: "year",
+          value: { kind: "intRange", intRange: { min: 2024, max: 2024 } },
+        },
+        { key: "language", value: { kind: "string", string: "Greek (el)" } },
+      ],
+      context: { locale: "el-GR", regionCode: "GR" },
+    });
+  });
+
+  it("parses page-only and experimental aliases", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.page-experimental",
+        name: "Page Experimental",
+        version: "1.0.0",
+      },
+      resources: {
+        pluginCatalog: {
+          endpoints: [
+            { id: "featured", name: "Featured", pluginKinds: ["catalog"] },
+          ],
+          handler: async (request) => {
+            captured = request;
+            return { plugins: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request(
+      "/plugin_catalog/featured/catalog?page=0&experimental=streamfox:beta&experimental=debug:limit:2,debug:trace:false",
+    );
+
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "featured",
+      pluginKind: "catalog",
+      page: { index: 0 },
+      experimental: [
+        { namespace: "streamfox", key: "beta", value: true },
+        { namespace: "debug", key: "limit", value: 2 },
+        { namespace: "debug", key: "trace", value: false },
+      ],
+    });
+  });
+
+  it("parses meta and stream aliases into canonical requests", async () => {
+    const captured: {
+      meta?: unknown;
+      stream?: unknown;
+    } = {};
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.meta-stream-aliases",
+        name: "Meta Stream Aliases",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async (request) => {
+            captured.meta = request;
+            return { item: null };
+          },
+        },
+        stream: {
+          mediaTypes: ["movie"],
+          supportedTransports: ["http"],
+          handler: async (request) => {
+            captured.stream = request;
+            return { streams: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    const metaResponse = await app.request("/meta/movie/tt0133093?locale=el-GR&regionCode=GR");
+    expect(metaResponse.status).toBe(200);
+    expect(captured.meta).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      mediaType: "movie",
+      itemID: "tt0133093",
+      context: { locale: "el-GR", regionCode: "GR" },
+    });
+
+    const streamResponse = await app.request(
+      "/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi&locale=el-GR",
+    );
+    expect(streamResponse.status).toBe(200);
+    expect(captured.stream).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      mediaType: "movie",
+      itemID: "tt0133093",
+      videoID: "trailer",
+      playback: { startPositionSeconds: 123, networkProfile: "wifi" },
+      context: { locale: "el-GR" },
+    });
+  });
+
+  it("parses subtitles aliases into canonical requests", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.subtitles-aliases",
+        name: "Subtitles Aliases",
+        version: "1.0.0",
+      },
+      resources: {
+        subtitles: {
+          mediaTypes: ["movie"],
+          handler: async (request) => {
+            captured = request;
+            return { subtitles: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request(
+      "/subtitles/movie/tt0133093?videoHash=abc123&videoSize=1234567&filename=matrix.mkv&languagePreferences=el,en&experimental=subs:ranking:fast",
+    );
+
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      mediaType: "movie",
+      itemID: "tt0133093",
+      videoFingerprint: {
+        hash: "abc123",
+        size: 1234567,
+        filename: "matrix.mkv",
+      },
+      languagePreferences: ["el", "en"],
+      experimental: [{ namespace: "subs", key: "ranking", value: "fast" }],
+    });
+  });
+
+  it("rejects legacy JSON-style query payloads for get resource routes", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.reject-json-query",
+        name: "Reject JSON Query",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "popular",
+              name: "Popular",
+              mediaTypes: ["movie"],
+              filters: [{ key: "genre", valueType: "string" }],
+            },
+          ],
+          handler: async () => ({ items: [] }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request(
+      "/catalog/movie/popular?page=%7B%22index%22%3A0%7D&filters=%5B%7B%22key%22%3A%22genre%22%2C%22value%22%3A%7B%22kind%22%3A%22string%22%2C%22string%22%3A%22Action%22%7D%7D%5D&context=%7B%22locale%22%3A%22el-GR%22%7D",
+    );
+
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body.error.code).toBe("REQUEST_INVALID");
+    expect(body.error.message).toContain("plain query aliases");
+  });
+
+  it("rejects remaining legacy structured query params on get resource routes", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.reject-remaining-legacy-query",
+        name: "Reject Remaining Legacy Query",
+        version: "1.0.0",
+      },
+      resources: {
+        subtitles: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ subtitles: [] }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    const schemaResponse = await app.request(
+      "/subtitles/movie/tt125?schemaVersion=%7B%22major%22%3A1%2C%22minor%22%3A0%7D",
+    );
+    expect(schemaResponse.status).toBe(400);
+    expect((await schemaResponse.json()).error.message).toContain("schemaVersion");
+
+    const experimentalResponse = await app.request(
+      "/subtitles/movie/tt125?experimental=%5B%7B%22namespace%22%3A%22x%22%2C%22key%22%3A%22y%22%2C%22value%22%3Atrue%7D%5D",
+    );
+    expect(experimentalResponse.status).toBe(400);
+    expect((await experimentalResponse.json()).error.message).toContain("experimental");
+
+    const fingerprintResponse = await app.request(
+      "/subtitles/movie/tt125?videoFingerprint=%7B%22hash%22%3A%22abc%22%7D",
+    );
+    expect(fingerprintResponse.status).toBe(400);
+    expect((await fingerprintResponse.json()).error.message).toContain("videoFingerprint");
   });
 
   it("returns redirect responses from handlers", async () => {

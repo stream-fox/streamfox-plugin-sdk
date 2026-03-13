@@ -80,6 +80,23 @@ Redirect responses are validated too (`redirect.url`, `redirect.status`) before 
 - `GET /subtitles/:mediaType/:itemID`
 - `GET /plugin_catalog/:catalogID/:pluginKind`
 
+## GET Query Style
+
+Resource routes use one HTTP style:
+
+- path params for identity
+- plain query aliases for request shaping
+
+Examples:
+
+- `/catalog/movie/popular?genre=Action&year=2024&locale=el-GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc`
+- `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
+- `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
+- `/subtitles/movie/tt0133093?videoHash=abc123&videoSize=1234567&filename=matrix.mkv&languagePreferences=en,el`
+- `/plugin_catalog/featured/catalog?page=0&experimental=streamfox:beta`
+
+Legacy structured query params such as `request`, `schemaVersion`, `context`, `experimental`, `filters`, `sort`, `playback`, and `videoFingerprint` are rejected on GET resource routes.
+
 ## Custom Frontends
 
 There are two supported ways to own the installer/frontend experience:
@@ -119,12 +136,16 @@ await serve(plugin, {
 ```ts
 import {
   createPlugin,
+  parseJsonWithLimits,
+  maximumJsonNestingDepth,
   validateManifest,
   validateRequest,
   validateResponse,
   ProtocolError,
 } from "@streamfox/plugin-sdk";
 ```
+
+JSON payload size/depth limit controls live in the schema utilities above, not in `createServer(...)` or `serve(...)`.
 
 Subpath export is also available:
 

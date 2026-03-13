@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { normalizeError, ProtocolError } from "./errors";
-import { parseJsonWithLimits, type JsonParseLimits } from "./schema";
 import type {
   AnySettingField,
   InstallOptions,
@@ -21,6 +20,9 @@ import {
 } from "./validators";
 import {
   SCHEMA_VERSION_CURRENT,
+  type FilterSpec,
+  type ManifestIndex,
+  type RequestFilter,
   type RequestPage,
   type RequestSort,
   type ResourceKind,
@@ -57,8 +59,6 @@ export interface DeepLinkOptions {
 export interface CreateServerOptions {
   basePath?: string;
   enableCors?: boolean;
-  maxPayloadBytes?: number;
-  maxDepth?: number;
   frontend?: FrontendOptions | boolean;
   deeplink?: DeepLinkOptions;
   installer?: InstallOptions | boolean;
@@ -94,19 +94,6 @@ function normalizePathPrefix(value: string | undefined): string {
     : withLeadingSlash;
 }
 
-function buildParseLimits(
-  options: CreateServerOptions,
-  traceId?: string,
-): JsonParseLimits {
-  return {
-    ...(options.maxPayloadBytes !== undefined
-      ? { maxPayloadBytes: options.maxPayloadBytes }
-      : {}),
-    ...(options.maxDepth !== undefined ? { maxDepth: options.maxDepth } : {}),
-    ...(traceId !== undefined ? { traceId } : {}),
-  };
-}
-
 function parseOptionalString(value: string | null): string | undefined {
   if (value === null) {
     return undefined;
@@ -137,18 +124,39 @@ function parseIntegerQueryValue(
   return parsed;
 }
 
-function parseJsonQueryParam<T>(
-  searchParams: URLSearchParams,
+function parseBooleanQueryValue(
+  value: string | null,
   key: string,
-  options: CreateServerOptions,
   traceId?: string,
-): T | undefined {
-  const raw = searchParams.get(key);
-  if (!raw || raw.trim().length === 0) {
+): boolean | undefined {
+  const normalized = parseOptionalString(value)?.toLowerCase();
+  if (!normalized) {
     return undefined;
   }
 
-  return parseJsonWithLimits<T>(raw, buildParseLimits(options, traceId));
+  if (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  ) {
+    return true;
+  }
+
+  if (
+    normalized === "0" ||
+    normalized === "false" ||
+    normalized === "no" ||
+    normalized === "off"
+  ) {
+    return false;
+  }
+
+  throw ProtocolError.requestInvalid(
+    `query parameter '${key}' must be a boolean`,
+    { key, value },
+    traceId,
+  );
 }
 
 function parseStringListQuery(
@@ -162,6 +170,153 @@ function parseStringListQuery(
     .filter((value) => value.length > 0);
 
   return values.length > 0 ? values : undefined;
+}
+
+function rejectStructuredQueryParam(
+  searchParams: URLSearchParams,
+  key: string,
+  traceId?: string,
+): void {
+  const value = parseOptionalString(searchParams.get(key));
+  if (!value) {
+    return;
+  }
+
+  throw ProtocolError.requestInvalid(
+    `query parameter '${key}' is not supported on GET resource routes; use plain query aliases instead`,
+    { key, value },
+    traceId,
+  );
+}
+
+function parseSchemaVersionFromQuery(
+  searchParams: URLSearchParams,
+  traceId?: string,
+): { major: number; minor: number } {
+  rejectStructuredQueryParam(searchParams, "schemaVersion", traceId);
+
+  const major = parseIntegerQueryValue(
+    searchParams.get("schemaMajor"),
+    "schemaMajor",
+    traceId,
+  );
+  const minor = parseIntegerQueryValue(
+    searchParams.get("schemaMinor"),
+    "schemaMinor",
+    traceId,
+  );
+
+  if (major === undefined && minor === undefined) {
+    return { ...SCHEMA_VERSION_CURRENT };
+  }
+
+  if (major === undefined || minor === undefined) {
+    throw ProtocolError.requestInvalid(
+      "query parameters 'schemaMajor' and 'schemaMinor' must be provided together",
+      { schemaMajor: major, schemaMinor: minor },
+      traceId,
+    );
+  }
+
+  return { major, minor };
+}
+
+function parseExperimentalScalar(
+  value: string,
+): string | number | boolean | null {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return "";
+  }
+
+  if (normalized === "null") {
+    return null;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower === "true") {
+    return true;
+  }
+  if (lower === "false") {
+    return false;
+  }
+
+  if (/^-?\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    if (Number.isSafeInteger(parsed)) {
+      return parsed;
+    }
+  }
+
+  if (/^-?(?:\d+\.\d+|\d+\.)$/.test(normalized)) {
+    const parsed = Number.parseFloat(normalized);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return normalized;
+}
+
+function parseExperimentalFromQuery(
+  searchParams: URLSearchParams,
+  traceId?: string,
+): Array<{ namespace: string; key: string; value: unknown }> | undefined {
+  const rawValues = searchParams.getAll("experimental");
+  for (const value of rawValues) {
+    const normalized = value.trim();
+    if (normalized.startsWith("[") || normalized.startsWith("{")) {
+      throw ProtocolError.requestInvalid(
+        "query parameter 'experimental' is not supported on GET resource routes; use plain query aliases instead",
+        { key: "experimental", value },
+        traceId,
+      );
+    }
+  }
+
+  const tokens = rawValues
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (tokens.length === 0) {
+    return undefined;
+  }
+
+  return tokens.map((token) => {
+    const first = token.indexOf(":");
+    const second = token.indexOf(":", first + 1);
+
+    if (first <= 0 || second === first + 1) {
+      throw ProtocolError.requestInvalid(
+        "query parameter 'experimental' must use 'namespace:key[:value]' format",
+        { experimental: token },
+        traceId,
+      );
+    }
+
+    const namespace = token.slice(0, first).trim();
+    const key =
+      second === -1
+        ? token.slice(first + 1).trim()
+        : token.slice(first + 1, second).trim();
+    const rawValue = second === -1 ? undefined : token.slice(second + 1).trim();
+
+    if (!namespace || !key) {
+      throw ProtocolError.requestInvalid(
+        "query parameter 'experimental' must use non-empty namespace and key segments",
+        { experimental: token },
+        traceId,
+      );
+    }
+
+    return {
+      namespace,
+      key,
+      value:
+        rawValue === undefined ? true : parseExperimentalScalar(rawValue),
+    };
+  });
 }
 
 function assertNeverResource(value: never, traceId?: string): never {
@@ -223,66 +378,11 @@ function withCanonicalRouteIdentifiers<K extends ResourceKind>(
   }
 }
 
-function parseSchemaVersionFromQuery(
-  searchParams: URLSearchParams,
-  options: CreateServerOptions,
-  traceId?: string,
-): { major: number; minor: number } {
-  const explicit = parseJsonQueryParam<unknown>(
-    searchParams,
-    "schemaVersion",
-    options,
-    traceId,
-  );
-  if (explicit !== undefined) {
-    if (!isRecord(explicit)) {
-      throw ProtocolError.requestInvalid(
-        "query parameter 'schemaVersion' must be a JSON object",
-        { schemaVersion: explicit },
-        traceId,
-      );
-    }
-
-    const major = explicit.major;
-    const minor = explicit.minor;
-    if (
-      typeof major !== "number" ||
-      !Number.isInteger(major) ||
-      major < 0 ||
-      typeof minor !== "number" ||
-      !Number.isInteger(minor) ||
-      minor < 0
-    ) {
-      throw ProtocolError.requestInvalid(
-        "query parameter 'schemaVersion' must include non-negative integer major and minor fields",
-        { schemaVersion: explicit },
-        traceId,
-      );
-    }
-
-    return {
-      major,
-      minor,
-    };
-  }
-  return { ...SCHEMA_VERSION_CURRENT };
-}
-
 function parsePageFromQuery(
   searchParams: URLSearchParams,
-  options: CreateServerOptions,
   traceId?: string,
 ): RequestPage | undefined {
-  const page = parseJsonQueryParam<RequestPage>(
-    searchParams,
-    "page",
-    options,
-    traceId,
-  );
-  if (page) {
-    return page;
-  }
-
+  const page = parseIntegerQueryValue(searchParams.get("page"), "page", traceId);
   const index = parseIntegerQueryValue(
     searchParams.get("pageIndex"),
     "pageIndex",
@@ -293,95 +393,213 @@ function parsePageFromQuery(
     "pageSize",
     traceId,
   );
-  if (index === undefined && size === undefined) {
+  if (page === undefined && index === undefined && size === undefined) {
     return undefined;
   }
 
   return {
-    index: index ?? 0,
+    index: page ?? index ?? 0,
     ...(size !== undefined ? { size } : {}),
   };
 }
 
-function parseSortFromQuery(
-  searchParams: URLSearchParams,
-  options: CreateServerOptions,
-  traceId?: string,
-): RequestSort | undefined {
-  const sort = parseJsonQueryParam<RequestSort>(
-    searchParams,
-    "sort",
-    options,
-    traceId,
-  );
-  if (sort) {
-    return sort;
-  }
-
+function parseSortFromQuery(searchParams: URLSearchParams): RequestSort | undefined {
   const key = parseOptionalString(searchParams.get("sortKey"));
   const direction = parseOptionalString(searchParams.get("sortDirection"));
   if (!key && !direction) {
     return undefined;
   }
 
+  const normalizedDirection =
+    direction?.toLowerCase() === "desc"
+      ? "descending"
+      : direction?.toLowerCase() === "asc"
+        ? "ascending"
+        : direction;
+
   return {
     key: key ?? "",
-    direction: (direction ?? "ascending") as RequestSort["direction"],
+    direction: (normalizedDirection ?? "ascending") as RequestSort["direction"],
+  };
+}
+
+function parseContextFromQuery(
+  searchParams: URLSearchParams,
+): Record<string, unknown> | undefined {
+  const context: Record<string, unknown> = {};
+  const locale = parseOptionalString(searchParams.get("locale"));
+  const regionCode = parseOptionalString(searchParams.get("regionCode"));
+
+  if (locale) {
+    context.locale = locale;
+  }
+
+  if (regionCode) {
+    context.regionCode = regionCode;
+  }
+
+  const queryTraceId = parseOptionalString(searchParams.get("traceID"));
+  if (queryTraceId) {
+    context.traceID = queryTraceId;
+  }
+
+  return Object.keys(context).length > 0 ? context : undefined;
+}
+
+function parsePlaybackFromQuery(
+  searchParams: URLSearchParams,
+  traceId?: string,
+): Record<string, unknown> | undefined {
+  const playback: Record<string, unknown> = {};
+  const startPositionSeconds = parseIntegerQueryValue(
+    searchParams.get("startPositionSeconds"),
+    "startPositionSeconds",
+    traceId,
+  );
+  const networkProfile = parseOptionalString(searchParams.get("networkProfile"));
+
+  if (startPositionSeconds !== undefined) {
+    playback.startPositionSeconds = startPositionSeconds;
+  }
+
+  if (networkProfile !== undefined) {
+    playback.networkProfile = networkProfile;
+  }
+
+  return Object.keys(playback).length > 0 ? playback : undefined;
+}
+
+function buildFilterValueFromAlias(
+  spec: FilterSpec,
+  searchParams: URLSearchParams,
+  traceId?: string,
+): RequestFilter["value"] | undefined {
+  const directValues = searchParams.getAll(spec.key);
+  const directValue = directValues[directValues.length - 1] ?? null;
+
+  switch (spec.valueType) {
+    case "string": {
+      const value = parseOptionalString(directValue);
+      return value ? { kind: "string", string: value } : undefined;
+    }
+    case "int": {
+      const value = parseIntegerQueryValue(directValue, spec.key, traceId);
+      return value !== undefined ? { kind: "int", int: value } : undefined;
+    }
+    case "bool": {
+      const value = parseBooleanQueryValue(directValue, spec.key, traceId);
+      return value !== undefined ? { kind: "bool", bool: value } : undefined;
+    }
+    case "stringList": {
+      const values = parseStringListQuery(searchParams, spec.key);
+      return values && values.length > 0
+        ? { kind: "stringList", stringList: values }
+        : undefined;
+    }
+    case "intRange": {
+      const directInt = parseIntegerQueryValue(directValue, spec.key, traceId);
+      const min = parseIntegerQueryValue(
+        searchParams.get(`${spec.key}Min`),
+        `${spec.key}Min`,
+        traceId,
+      );
+      const max = parseIntegerQueryValue(
+        searchParams.get(`${spec.key}Max`),
+        `${spec.key}Max`,
+        traceId,
+      );
+
+      if (directInt !== undefined) {
+        return {
+          kind: "intRange",
+          intRange: {
+            min: directInt,
+            max: directInt,
+          },
+        };
+      }
+
+      if (min !== undefined || max !== undefined) {
+        return {
+          kind: "intRange",
+          intRange: {
+            ...(min !== undefined ? { min } : {}),
+            ...(max !== undefined ? { max } : {}),
+          },
+        };
+      }
+
+      return undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+function parseCatalogFiltersFromQuery(
+  searchParams: URLSearchParams,
+  manifestIndex: ManifestIndex | undefined,
+  catalogID: string,
+  traceId?: string,
+): RequestFilter[] | undefined {
+  const endpoint = manifestIndex?.catalogEndpointByID.get(catalogID);
+  const filterSpecs = endpoint?.filters ?? [];
+
+  if (filterSpecs.length === 0) {
+    return undefined;
+  }
+
+  const synthesizedFilters = filterSpecs
+    .map((spec) => {
+      const value = buildFilterValueFromAlias(spec, searchParams, traceId);
+      return value ? ({ key: spec.key, value } satisfies RequestFilter) : undefined;
+    })
+    .filter((filter): filter is RequestFilter => filter !== undefined);
+
+  return synthesizedFilters.length > 0 ? synthesizedFilters : undefined;
+}
+
+function parseVideoFingerprintFromQuery(
+  searchParams: URLSearchParams,
+  traceId?: string,
+): Record<string, unknown> | undefined {
+  rejectStructuredQueryParam(searchParams, "videoFingerprint", traceId);
+
+  const hash = parseOptionalString(searchParams.get("videoHash"));
+  const size = parseIntegerQueryValue(
+    searchParams.get("videoSize"),
+    "videoSize",
+    traceId,
+  );
+  const filename = parseOptionalString(searchParams.get("filename"));
+
+  if (hash === undefined && size === undefined && filename === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(hash !== undefined ? { hash } : {}),
+    ...(size !== undefined ? { size } : {}),
+    ...(filename !== undefined ? { filename } : {}),
   };
 }
 
 function parseRequestFromQuery<K extends ResourceKind>(
   resource: K,
   searchParams: URLSearchParams,
-  options: CreateServerOptions,
   routeIdentifiers: RouteIdentifiers = {},
+  manifestIndex?: ManifestIndex,
   headerTraceId?: string,
 ): ResourceRequestMap[K] {
-  const explicitRequest = parseOptionalString(searchParams.get("request"));
-  if (explicitRequest) {
-    const parsed = parseJsonWithLimits<unknown>(
-      explicitRequest,
-      buildParseLimits(options, headerTraceId),
-    );
-    if (!isRecord(parsed)) {
-      throw ProtocolError.requestInvalid(
-        "query parameter 'request' must be a JSON object",
-        undefined,
-        headerTraceId,
-      );
-    }
-    return withCanonicalRouteIdentifiers(
-      resource,
-      parsed as ResourceRequestMap[K],
-      routeIdentifiers,
-    );
-  }
+  rejectStructuredQueryParam(searchParams, "request", headerTraceId);
+  rejectStructuredQueryParam(searchParams, "context", headerTraceId);
+  rejectStructuredQueryParam(searchParams, "sort", headerTraceId);
+  rejectStructuredQueryParam(searchParams, "filters", headerTraceId);
+  rejectStructuredQueryParam(searchParams, "playback", headerTraceId);
 
-  const schemaVersion = parseSchemaVersionFromQuery(
-    searchParams,
-    options,
-    headerTraceId,
-  );
-  const parsedContext =
-    parseJsonQueryParam<Record<string, unknown>>(
-      searchParams,
-      "context",
-      options,
-      headerTraceId,
-    ) ?? {};
-  const queryTraceId = parseOptionalString(searchParams.get("traceID"));
-  if (queryTraceId) {
-    parsedContext.traceID = queryTraceId;
-  }
-
-  const context =
-    Object.keys(parsedContext).length > 0 ? parsedContext : undefined;
-  const experimental = parseJsonQueryParam<unknown[]>(
-    searchParams,
-    "experimental",
-    options,
-    headerTraceId,
-  );
+  const schemaVersion = parseSchemaVersionFromQuery(searchParams, headerTraceId);
+  const context = parseContextFromQuery(searchParams);
+  const experimental = parseExperimentalFromQuery(searchParams, headerTraceId);
   const mediaType = resolveIdentifierFromPathOrQuery(
     searchParams,
     routeIdentifiers,
@@ -406,12 +624,12 @@ function parseRequestFromQuery<K extends ResourceKind>(
   switch (resource) {
     case "catalog": {
       const query = parseOptionalString(searchParams.get("query"));
-      const page = parsePageFromQuery(searchParams, options, headerTraceId);
-      const sort = parseSortFromQuery(searchParams, options, headerTraceId);
-      const filters = parseJsonQueryParam<unknown[]>(
+      const page = parsePageFromQuery(searchParams, headerTraceId);
+      const sort = parseSortFromQuery(searchParams);
+      const filters = parseCatalogFiltersFromQuery(
         searchParams,
-        "filters",
-        options,
+        manifestIndex,
+        catalogID,
         headerTraceId,
       );
 
@@ -437,12 +655,7 @@ function parseRequestFromQuery<K extends ResourceKind>(
       } as ResourceRequestMap[K];
     case "stream": {
       const videoID = parseOptionalString(searchParams.get("videoID"));
-      const playback = parseJsonQueryParam<Record<string, unknown>>(
-        searchParams,
-        "playback",
-        options,
-        headerTraceId,
-      );
+      const playback = parsePlaybackFromQuery(searchParams, headerTraceId);
 
       return {
         schemaVersion,
@@ -455,10 +668,8 @@ function parseRequestFromQuery<K extends ResourceKind>(
       } as ResourceRequestMap[K];
     }
     case "subtitles": {
-      const videoFingerprint = parseJsonQueryParam<Record<string, unknown>>(
+      const videoFingerprint = parseVideoFingerprintFromQuery(
         searchParams,
-        "videoFingerprint",
-        options,
         headerTraceId,
       );
       const languagePreferences = parseStringListQuery(
@@ -478,7 +689,7 @@ function parseRequestFromQuery<K extends ResourceKind>(
     }
     case "plugin_catalog": {
       const query = parseOptionalString(searchParams.get("query"));
-      const page = parsePageFromQuery(searchParams, options, headerTraceId);
+      const page = parsePageFromQuery(searchParams, headerTraceId);
 
       return {
         schemaVersion,
@@ -795,8 +1006,8 @@ export function createServer<
       const request = parseRequestFromQuery(
         route.resource,
         searchParams,
-        options,
         route.identifiers(context),
+        plugin.index,
         context.req.header("x-trace-id"),
       );
       const traceId = buildTraceId(context.req.header("x-trace-id"), request);
