@@ -26,9 +26,12 @@
     "build": "npm run build:ui && tsup",
     "build:ui": "vite build --config ui/vite.config.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run typecheck && npm test && npm run build",
     "test:module-smoke": "npm run build && node ./scripts/module-smoke.mjs"
   },
   "dependencies": {
@@ -45,6 +48,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "postcss": "^8.5.8",
+    "prettier": "^3.6.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.5.0",

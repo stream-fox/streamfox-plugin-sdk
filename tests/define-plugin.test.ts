@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createServer, definePlugin, settings } from "../src/index";
 
@@ -430,5 +433,84 @@ describe("definePlugin", () => {
 
     expect(response.status).toBe(200);
     expect(body.installer.configurationRequired).toBe(true);
+  });
+
+  it("serves a custom frontend bundle from a custom mount path", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.custom-frontend",
+        name: "Custom Frontend",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const distDir = await mkdtemp(path.join(tmpdir(), "streamfox-frontend-"));
+
+    try {
+      await mkdir(path.join(distDir, "assets"), { recursive: true });
+      await writeFile(path.join(distDir, "index.html"), "<html><body>custom frontend</body></html>");
+      await writeFile(path.join(distDir, "assets", "app.js"), "console.log('custom frontend');");
+
+      const app = createServer(plugin, {
+        frontend: {
+          mountPath: "/installer",
+          distPath: distDir,
+        },
+      });
+
+      const indexResponse = await app.request("/installer");
+      expect(indexResponse.status).toBe(200);
+      expect(await indexResponse.text()).toContain("custom frontend");
+
+      const assetResponse = await app.request("/installer/assets/app.js");
+      expect(assetResponse.status).toBe(200);
+      expect(await assetResponse.text()).toContain("custom frontend");
+    } finally {
+      await rm(distDir, { recursive: true, force: true });
+    }
+  });
+
+  it("supports overriding the assets mount path for custom frontends", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.custom-assets-path",
+        name: "Custom Assets Path",
+        version: "1.0.0",
+      },
+      resources: {
+        meta: {
+          mediaTypes: ["movie"],
+          handler: async () => ({ item: null }),
+        },
+      },
+    });
+
+    const distDir = await mkdtemp(path.join(tmpdir(), "streamfox-assets-"));
+
+    try {
+      await mkdir(path.join(distDir, "assets"), { recursive: true });
+      await writeFile(path.join(distDir, "index.html"), "<html><body>custom assets path</body></html>");
+      await writeFile(path.join(distDir, "assets", "app.css"), "body { color: black; }");
+
+      const app = createServer(plugin, {
+        frontend: {
+          mountPath: "/installer",
+          assetsMountPath: "/public-assets",
+          distPath: distDir,
+        },
+      });
+
+      const assetResponse = await app.request("/public-assets/app.css");
+      expect(assetResponse.status).toBe(200);
+      expect(await assetResponse.text()).toContain("color: black");
+    } finally {
+      await rm(distDir, { recursive: true, force: true });
+    }
   });
 });

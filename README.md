@@ -76,6 +76,34 @@ Redirect responses are validated too (`redirect.url`, `redirect.status`) before 
 - `GET /subtitles/:mediaType/:itemID`
 - `GET /plugin_catalog/:catalogID/:pluginKind`
 
+## Custom Frontends
+
+There are two supported ways to own the installer/frontend experience:
+
+1. Headless mode:
+
+```ts
+await serve(plugin, {
+  frontend: false,
+});
+```
+
+Use your own app against `GET /manifest`, `GET /studio-config`, and the resource routes.
+
+2. Custom static bundle served by the SDK:
+
+```ts
+await serve(plugin, {
+  frontend: {
+    mountPath: "/installer",
+    distPath: "/absolute/path/to/frontend-dist",
+    assetsMountPath: "/installer/assets",
+  },
+});
+```
+
+`/studio-config` is the frontend contract for installer metadata, field definitions, deeplink scheme, and `configurationRequired`.
+
 ## Docs
 
 - [Plugin Contract](./docs/plugin-contract.md)
@@ -104,6 +132,7 @@ import { validateManifest, validateRequest, validateResponse } from "@streamfox/
 
 ```bash
 npm install
+npm run format
 npm run build
 npm test
 ```

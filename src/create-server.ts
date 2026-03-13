@@ -28,6 +28,7 @@ const moduleDir =
 export interface FrontendOptions {
   enabled?: boolean;
   mountPath?: string;
+  assetsMountPath?: string;
   distPath?: string;
 }
 
@@ -433,6 +434,7 @@ function setCacheHeaders(response: Record<string, unknown>, headers: Headers): v
 
 function configureFrontend(app: Hono, prefix: string, options: FrontendOptions): void {
   const mountPath = normalizePathPrefix(options.mountPath ?? "/");
+  const assetsMountPath = normalizePathPrefix(options.assetsMountPath ?? `${mountPath}/assets`);
   const distPath = options.distPath ?? path.resolve(moduleDir, "ui");
 
   if (!existsSync(distPath)) {
@@ -444,11 +446,18 @@ function configureFrontend(app: Hono, prefix: string, options: FrontendOptions):
 
   const rootRoute = `${prefix}${mountPath}` || "/";
   const rootRouteWithSlash = rootRoute.endsWith("/") ? rootRoute : `${rootRoute}/`;
+  const assetsRoutePrefix = `${prefix}${assetsMountPath}` || "/assets";
+  const assetsRoutePattern = assetsRoutePrefix.endsWith("/")
+    ? `${assetsRoutePrefix}*`
+    : `${assetsRoutePrefix}/*`;
 
   app.get(rootRoute, async () => sendStaticFile(indexPath));
   app.get(rootRouteWithSlash, async () => sendStaticFile(indexPath));
-  app.get(`${prefix}/assets/*`, async (context) => {
-    const file = context.req.path.replace(`${prefix}/assets/`, "");
+  app.get(assetsRoutePattern, async (context) => {
+    const requestPath = context.req.path;
+    const file = requestPath.startsWith(`${assetsRoutePrefix}/`)
+      ? requestPath.slice(assetsRoutePrefix.length + 1)
+      : requestPath.slice(assetsRoutePrefix.length);
     const candidate = path.resolve(assetsPath, file);
     if (!candidate.startsWith(assetsPath)) {
       return context.json(ProtocolError.requestInvalid("Invalid asset path").toJSON(), 400);

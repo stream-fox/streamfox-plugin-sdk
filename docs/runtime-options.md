@@ -10,9 +10,16 @@
 | `enableCors` | `boolean` | `true` | Enables CORS middleware. |
 | `maxPayloadBytes` | `number` | SDK default | Limit for JSON query payload parsing. |
 | `maxDepth` | `number` | SDK default | Max JSON nesting depth. |
-| `frontend` | `boolean \| { enabled?, mountPath?, distPath? }` | enabled | Installer/static UI behavior. |
+| `frontend` | `boolean \| { enabled?, mountPath?, assetsMountPath?, distPath? }` | enabled | Installer/static UI behavior. |
 | `deeplink` | `{ enabled?, scheme?, manifestPath? }` | enabled | Controls studio-config deeplink metadata. |
 | `installer` | `boolean \| InstallOptions` | enabled | Built-in installer settings. |
+
+`FrontendOptions`:
+
+- `enabled?: boolean`
+- `mountPath?: string`
+- `assetsMountPath?: string`
+- `distPath?: string`
 
 ## `serve(plugin, options)`
 
@@ -51,6 +58,41 @@
 - `installURL`: install deeplink (`<installScheme>://.../manifest`)
 - `launchURL`: launch URL (`launchBaseURL + addonOpen=<manifestURL>`)
 - `app`, `server`, `close()`
+
+## Custom Frontend Patterns
+
+Headless mode:
+
+```ts
+await serve(plugin, {
+  frontend: false,
+});
+```
+
+This keeps the plugin API active while letting you host your own frontend elsewhere. Your frontend should consume:
+
+- `GET /manifest`
+- `GET /studio-config`
+- the canonical resource routes
+
+Custom static bundle served by the SDK:
+
+```ts
+await serve(plugin, {
+  frontend: {
+    mountPath: "/installer",
+    distPath: "/absolute/path/to/frontend-dist",
+    assetsMountPath: "/installer/assets",
+  },
+});
+```
+
+Notes:
+
+- `mountPath` controls where `index.html` is served.
+- `assetsMountPath` controls where files from `<distPath>/assets` are served.
+- If your bundler emits absolute asset URLs like `/assets/...`, set `assetsMountPath: "/assets"`.
+- `/studio-config` is the canonical frontend configuration endpoint for installer labels, field schemas, deeplink config, and `configurationRequired`.
 
 ## Request Mapping Inputs
 
