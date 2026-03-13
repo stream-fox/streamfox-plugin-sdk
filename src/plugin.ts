@@ -4,6 +4,7 @@ import {
   SCHEMA_VERSION_CURRENT,
   type CatalogEndpoint,
   type Capability,
+  type FilterSpec,
   type HandlerKey,
   type ManifestIndex,
   type Manifest,
@@ -12,7 +13,7 @@ import {
   type ResourceRequestMap,
   type ResourceResponseMap,
 } from "./types";
-import { deepFreeze, isRecord } from "./utils";
+import { deepFreeze, isRecord, resolveCatalogEndpointFilters } from "./utils";
 import { validateManifest } from "./validators";
 
 export interface HandlerContext<
@@ -107,6 +108,7 @@ function requiredHandlerKeys(manifest: Manifest): HandlerKey[] {
 function buildManifestIndex(manifest: Manifest): ManifestIndex {
   const capabilityByKind: Partial<Record<ResourceKind, Capability>> = {};
   const catalogEndpointByID = new Map<string, CatalogEndpoint>();
+  const catalogFiltersByEndpointID = new Map<string, readonly FilterSpec[]>();
   const pluginCatalogEndpointByID = new Map<string, PluginCatalogEndpoint>();
 
   for (const capability of manifest.capabilities) {
@@ -115,6 +117,10 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
     if (capability.kind === "catalog") {
       for (const endpoint of capability.endpoints) {
         catalogEndpointByID.set(endpoint.id, endpoint);
+        catalogFiltersByEndpointID.set(
+          endpoint.id,
+          resolveCatalogEndpointFilters(capability, endpoint),
+        );
       }
       continue;
     }
@@ -129,6 +135,7 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
   return {
     capabilityByKind,
     catalogEndpointByID,
+    catalogFiltersByEndpointID,
     pluginCatalogEndpointByID,
   };
 }

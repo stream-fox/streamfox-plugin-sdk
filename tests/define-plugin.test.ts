@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createServer, definePlugin, settings } from "../src/index";
+import { createServer, definePlugin, filters, settings } from "../src/index";
 
 describe("definePlugin", () => {
   it("builds manifest and injects schemaVersion into handler response", async () => {
@@ -456,6 +456,186 @@ describe("definePlugin", () => {
       ],
       context: { locale: "el-GR", regionCode: "GR" },
     });
+  });
+
+  it("supports shared filter sets and normalizes option aliases", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.shared-filter-sets",
+        name: "Shared Filter Sets",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          filterSets: {
+            commonCatalogFilters: [
+              filters.select("language", {
+                label: "Language",
+                description: "Preferred audio language",
+                group: "regional",
+                options: [
+                  {
+                    label: "Japanese",
+                    value: "ja",
+                    aliases: ["Japanese (ja)"],
+                  },
+                  { label: "English", value: "en", aliases: ["English (en)"] },
+                ],
+              }),
+              filters.select("genre", {
+                options: [
+                  { label: "Action", value: "action", aliases: ["Action"] },
+                  { label: "Drama", value: "drama" },
+                ],
+              }),
+            ],
+          },
+          endpoints: [
+            {
+              id: "discover",
+              name: "Discover",
+              mediaTypes: ["movie"],
+              filterSetRefs: ["commonCatalogFilters"],
+              filters: [filters.range("year")],
+            },
+          ],
+          handler: async (request) => {
+            captured = request;
+            return { items: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request(
+      "/catalog/movie/discover?language=Japanese%20(ja)&genre=Action&year=2024&ignored=skip",
+    );
+
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "discover",
+      mediaType: "movie",
+      filters: [
+        { key: "language", value: { kind: "string", string: "ja" } },
+        { key: "genre", value: { kind: "string", string: "action" } },
+        {
+          key: "year",
+          value: { kind: "intRange", intRange: { min: 2024, max: 2024 } },
+        },
+      ],
+    });
+  });
+
+  it("builds manifest-compatible filter helper objects", () => {
+    expect(
+      filters.select("language", {
+        description: "Preferred language",
+        options: [{ label: "Japanese", value: "ja", aliases: ["Japanese (ja)"] }],
+      }),
+    ).toEqual({
+      key: "language",
+      valueType: "string",
+      control: "select",
+      label: "Language",
+      description: "Preferred language",
+      options: [{ label: "Japanese", value: "ja", aliases: ["Japanese (ja)"] }],
+    });
+
+    expect(filters.multiSelect("genres", { options: [] }).valueType).toBe(
+      "stringList",
+    );
+    expect(filters.range("year").control).toBe("range");
+    expect(filters.toggle("dubbed").valueType).toBe("bool");
+  });
+
+  it("rejects unknown filter set references", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.missing-filter-set",
+          name: "Missing Filter Set",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            endpoints: [
+              {
+                id: "discover",
+                name: "Discover",
+                mediaTypes: ["movie"],
+                filterSetRefs: ["commonCatalogFilters"],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/unknown filter set/i);
+  });
+
+  it("rejects duplicate merged filter keys across filter sets and endpoints", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.duplicate-filter-key",
+          name: "Duplicate Filter Key",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            filterSets: {
+              commonCatalogFilters: [filters.text("language")],
+            },
+            endpoints: [
+              {
+                id: "discover",
+                name: "Discover",
+                mediaTypes: ["movie"],
+                filterSetRefs: ["commonCatalogFilters"],
+                filters: [filters.select("language", { options: [] })],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/duplicated/i);
+  });
+
+  it("rejects aliases that collide with canonical option values", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.alias-collision",
+          name: "Alias Collision",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            endpoints: [
+              {
+                id: "discover",
+                name: "Discover",
+                mediaTypes: ["movie"],
+                filters: [
+                  filters.select("language", {
+                    options: [
+                      { label: "Japanese", value: "ja", aliases: ["en"] },
+                      { label: "English", value: "en" },
+                    ],
+                  }),
+                ],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/collides with a canonical option value/i);
   });
 
   it("parses page-only and experimental aliases", async () => {

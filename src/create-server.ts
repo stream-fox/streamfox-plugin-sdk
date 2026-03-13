@@ -28,7 +28,7 @@ import {
   type ResourceKind,
   type ResourceRequestMap,
 } from "./types";
-import { isRecord } from "./utils";
+import { isRecord, normalizeFilterOptions } from "./utils";
 
 const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -474,13 +474,41 @@ function buildFilterValueFromAlias(
   searchParams: URLSearchParams,
   traceId?: string,
 ): RequestFilter["value"] | undefined {
+  const normalizeOptionValue = (value: string): string => {
+    const normalized = value.trim();
+    if (normalized.length === 0) {
+      return normalized;
+    }
+
+    const lowercased = normalized.toLowerCase();
+    const options = normalizeFilterOptions(spec);
+
+    for (const option of options) {
+      if (option.value.trim().toLowerCase() === lowercased) {
+        return option.value;
+      }
+    }
+
+    for (const option of options) {
+      for (const alias of option.aliases ?? []) {
+        if (alias.trim().toLowerCase() === lowercased) {
+          return option.value;
+        }
+      }
+    }
+
+    return normalized;
+  };
+
   const directValues = searchParams.getAll(spec.key);
   const directValue = directValues[directValues.length - 1] ?? null;
 
   switch (spec.valueType) {
     case "string": {
       const value = parseOptionalString(directValue);
-      return value ? { kind: "string", string: value } : undefined;
+      return value
+        ? { kind: "string", string: normalizeOptionValue(value) }
+        : undefined;
     }
     case "int": {
       const value = parseIntegerQueryValue(directValue, spec.key, traceId);
@@ -493,7 +521,10 @@ function buildFilterValueFromAlias(
     case "stringList": {
       const values = parseStringListQuery(searchParams, spec.key);
       return values && values.length > 0
-        ? { kind: "stringList", stringList: values }
+        ? {
+            kind: "stringList",
+            stringList: values.map((value) => normalizeOptionValue(value)),
+          }
         : undefined;
     }
     case "intRange": {
@@ -543,7 +574,7 @@ function parseCatalogFiltersFromQuery(
   traceId?: string,
 ): RequestFilter[] | undefined {
   const endpoint = manifestIndex?.catalogEndpointByID.get(catalogID);
-  const filterSpecs = endpoint?.filters ?? [];
+  const filterSpecs = manifestIndex?.catalogFiltersByEndpointID.get(catalogID) ?? endpoint?.filters ?? [];
 
   if (filterSpecs.length === 0) {
     return undefined;

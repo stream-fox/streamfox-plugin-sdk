@@ -24,6 +24,13 @@ export type FilterValueType =
   | "bool"
   | "stringList"
   | "intRange";
+export type FilterControl =
+  | "select"
+  | "multi_select"
+  | "text"
+  | "number"
+  | "range"
+  | "toggle";
 export type SortDirection = "ascending" | "descending";
 export type SupportedTransport =
   | "http"
@@ -65,10 +72,37 @@ export interface Paging {
   [key: string]: unknown;
 }
 
+export interface FilterOption {
+  value: string;
+  label: string;
+  aliases?: string[];
+  [key: string]: unknown;
+}
+
+export interface FilterRangeDefaultValue {
+  min?: number;
+  max?: number;
+  [key: string]: unknown;
+}
+
+export type FilterDefaultValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | FilterRangeDefaultValue;
+
 export interface FilterSpec {
   key: string;
   valueType: FilterValueType;
   isRequired?: boolean;
+  label?: string;
+  description?: string;
+  placeholder?: string;
+  group?: string;
+  control?: FilterControl;
+  defaultValue?: FilterDefaultValue;
+  options?: FilterOption[];
   allowedValues?: string[];
   [key: string]: unknown;
 }
@@ -85,6 +119,7 @@ export interface CatalogEndpoint {
   id: string;
   name: string;
   mediaTypes: MediaType[];
+  filterSetRefs?: string[];
   filters?: FilterSpec[];
   paging?: Paging;
   sorts?: SortSpec[];
@@ -102,6 +137,7 @@ export interface PluginCatalogEndpoint {
 
 export interface CatalogCapability {
   kind: "catalog";
+  filterSets?: Record<string, FilterSpec[]>;
   endpoints: CatalogEndpoint[];
   [key: string]: unknown;
 }
@@ -520,6 +556,7 @@ export interface ManifestIndex {
     Partial<Record<ResourceKind, Capability>>
   >;
   readonly catalogEndpointByID: ReadonlyMap<string, CatalogEndpoint>;
+  readonly catalogFiltersByEndpointID: ReadonlyMap<string, readonly FilterSpec[]>;
   readonly pluginCatalogEndpointByID: ReadonlyMap<
     string,
     PluginCatalogEndpoint

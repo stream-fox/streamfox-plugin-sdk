@@ -2,6 +2,7 @@ import {
   SCHEMA_VERSION_CURRENT,
   type CatalogEndpoint,
   type ExperimentalField,
+  type FilterSpec,
   type Manifest,
   type MediaType,
   type MetaInclude,
@@ -21,6 +22,7 @@ import { createPlugin, type MediaPlugin, type PluginHandler } from "./plugin";
 import { ProtocolError } from "./errors";
 
 interface CatalogResource<TSettings extends Record<string, SettingPrimitive>> {
+  filterSets?: Record<string, FilterSpec[]>;
   endpoints: CatalogEndpoint[];
   handler: PluginHandler<"catalog", TSettings>;
 }
@@ -91,6 +93,9 @@ export function definePlugin<
   if (resources.catalog) {
     manifestCapabilities.push({
       kind: "catalog",
+      ...(resources.catalog.filterSets
+        ? { filterSets: resources.catalog.filterSets }
+        : {}),
       endpoints: resources.catalog.endpoints,
     });
     handlers.catalog = resources.catalog.handler;

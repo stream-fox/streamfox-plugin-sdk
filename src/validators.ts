@@ -30,7 +30,14 @@ import {
   type SubtitlesResponse,
   type VideoUnit,
 } from "./types";
-import { asArray, isRecord, nonBlank } from "./utils";
+import {
+  asArray,
+  getCatalogCapability,
+  isRecord,
+  nonBlank,
+  normalizeFilterOptions,
+  resolveCatalogEndpointFilters,
+} from "./utils";
 
 const SEMVER_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/;
 const SUPPORTED_TRANSPORTS = new Set([
@@ -114,6 +121,67 @@ function checkSupportedSchemaVersion(
   }
 }
 
+function validateFilterSpecs(
+  filters: FilterSpec[],
+  ownerLabel: string,
+): void {
+  const seenFilterKeys = new Set<string>();
+
+  for (const filter of filters) {
+    assertManifest(
+      nonBlank(filter.key),
+      `Filter key cannot be empty in ${ownerLabel}`,
+    );
+    assertManifest(
+      !seenFilterKeys.has(filter.key),
+      `Filter '${filter.key}' is duplicated in ${ownerLabel}`,
+    );
+    seenFilterKeys.add(filter.key);
+
+    const options = normalizeFilterOptions(filter);
+    const seenOptionValues = new Set<string>();
+    const seenAliases = new Set<string>();
+    const normalizedOptionValues = new Set(
+      options.map((option) => option.value.trim().toLowerCase()),
+    );
+
+    for (const option of options) {
+      const normalizedOptionValue = option.value.trim().toLowerCase();
+      assertManifest(
+        nonBlank(option.value),
+        `Filter '${filter.key}' in ${ownerLabel} contains an option with an empty value`,
+      );
+      assertManifest(
+        nonBlank(option.label),
+        `Filter '${filter.key}' in ${ownerLabel} contains an option with an empty label`,
+      );
+      assertManifest(
+        !seenOptionValues.has(option.value),
+        `Filter '${filter.key}' in ${ownerLabel} contains duplicate option value '${option.value}'`,
+      );
+      seenOptionValues.add(option.value);
+
+      for (const alias of asArray(option.aliases)) {
+        assertManifest(
+          nonBlank(alias),
+          `Filter '${filter.key}' in ${ownerLabel} contains a blank option alias`,
+        );
+        const normalizedAlias = alias.trim().toLowerCase();
+        assertManifest(
+          normalizedAlias === normalizedOptionValue ||
+            !normalizedOptionValues.has(normalizedAlias),
+          `Filter '${filter.key}' in ${ownerLabel} contains alias '${alias}' that collides with a canonical option value`,
+        );
+        assertManifest(
+          !seenAliases.has(normalizedAlias),
+          `Filter '${filter.key}' in ${ownerLabel} contains duplicate option alias '${alias}'`,
+        );
+        seenAliases.add(normalizedAlias);
+      }
+    }
+  }
+}
+
 function validateManifestCatalogCapability(
   capability: Extract<Capability, { kind: "catalog" }>,
 ): void {
@@ -124,6 +192,16 @@ function validateManifestCatalogCapability(
   );
 
   const seenIds = new Set<string>();
+  for (const [filterSetName, filters] of Object.entries(
+    capability.filterSets ?? {},
+  )) {
+    assertManifest(
+      nonBlank(filterSetName),
+      "Catalog filter set name cannot be empty",
+    );
+    validateFilterSpecs(asArray(filters), `filter set '${filterSetName}'`);
+  }
+
   for (const endpoint of endpoints) {
     assertManifest(
       nonBlank(endpoint.id),
@@ -139,18 +217,21 @@ function validateManifestCatalogCapability(
       `Catalog endpoint '${endpoint.id}' must declare media types`,
     );
 
-    const seenFilterKeys = new Set<string>();
-    for (const filter of asArray(endpoint.filters)) {
+    for (const filterSetRef of asArray(endpoint.filterSetRefs)) {
       assertManifest(
-        nonBlank(filter.key),
-        `Filter key cannot be empty in endpoint '${endpoint.id}'`,
+        nonBlank(filterSetRef),
+        `Catalog endpoint '${endpoint.id}' contains a blank filterSetRef`,
       );
       assertManifest(
-        !seenFilterKeys.has(filter.key),
-        `Filter '${filter.key}' is duplicated in endpoint '${endpoint.id}'`,
+        !!capability.filterSets?.[filterSetRef],
+        `Catalog endpoint '${endpoint.id}' references unknown filter set '${filterSetRef}'`,
       );
-      seenFilterKeys.add(filter.key);
     }
+
+    validateFilterSpecs(
+      resolveCatalogEndpointFilters(capability, endpoint),
+      `endpoint '${endpoint.id}'`,
+    );
   }
 }
 
@@ -378,10 +459,9 @@ function validateCatalogRequest(
   );
 
   const capability = (index?.capabilityByKind.catalog ??
-    manifest.capabilities.find(
-      (candidate): candidate is Extract<Capability, { kind: "catalog" }> =>
-        candidate.kind === "catalog",
-    )) as Extract<Capability, { kind: "catalog" }> | undefined;
+    getCatalogCapability(manifest)) as
+    | Extract<Capability, { kind: "catalog" }>
+    | undefined;
   assertRequest(
     !!capability,
     "catalog capability is not declared",
@@ -420,9 +500,10 @@ function validateCatalogRequest(
   validatePage(request.page, traceId);
   validateSort(request.sort, endpoint, traceId);
 
-  const specByKey = new Map(
-    asArray(endpoint.filters).map((spec) => [spec.key, spec]),
-  );
+  const effectiveFilters =
+    index?.catalogFiltersByEndpointID.get(request.catalogID) ??
+    resolveCatalogEndpointFilters(capability, endpoint);
+  const specByKey = new Map(effectiveFilters.map((spec) => [spec.key, spec]));
   const seenFilters = new Set<string>();
 
   for (const filter of asArray(request.filters)) {
@@ -445,7 +526,7 @@ function validateCatalogRequest(
     validateFilterValueType(filter, spec, traceId);
   }
 
-  for (const spec of asArray(endpoint.filters)) {
+  for (const spec of effectiveFilters) {
     if (spec.isRequired) {
       assertRequest(
         asArray(request.filters).some(

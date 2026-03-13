@@ -1,6 +1,7 @@
 export * from "./errors";
 export * from "./define-plugin";
 export * from "./create-server";
+export * from "./filters";
 export * from "./install";
 export * from "./plugin";
 export * from "./schema";

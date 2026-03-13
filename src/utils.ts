@@ -1,5 +1,8 @@
 import type {
   Capability,
+  CatalogEndpoint,
+  FilterOption,
+  FilterSpec,
   Manifest,
   PluginCatalogCapability,
   ResourceKind,
@@ -49,6 +52,42 @@ export function getCatalogCapability(
   manifest: Manifest,
 ): CatalogCapability | undefined {
   return getCapability(manifest, "catalog");
+}
+
+export function normalizeFilterOptions(spec: FilterSpec): FilterOption[] {
+  if (Array.isArray(spec.options) && spec.options.length > 0) {
+    return spec.options;
+  }
+
+  return asArray(spec.allowedValues).map((value) => ({
+    value,
+    label: value,
+  }));
+}
+
+export function resolveCatalogEndpointFilters(
+  capability: CatalogCapability | undefined,
+  endpoint: CatalogEndpoint | undefined,
+): FilterSpec[] {
+  if (!capability || !endpoint) {
+    return [];
+  }
+
+  const filterSetRefs = asArray(endpoint.filterSetRefs);
+  const resolvedFromSets = filterSetRefs.flatMap(
+    (ref) => capability.filterSets?.[ref] ?? [],
+  );
+
+  return [...resolvedFromSets, ...asArray(endpoint.filters)];
+}
+
+export function getCatalogEndpointFilters(
+  manifest: Manifest,
+  catalogID: string,
+): FilterSpec[] {
+  const capability = getCatalogCapability(manifest);
+  const endpoint = capability?.endpoints.find((candidate) => candidate.id === catalogID);
+  return resolveCatalogEndpointFilters(capability, endpoint);
 }
 
 export function getMetaCapability(

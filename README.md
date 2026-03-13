@@ -19,7 +19,7 @@ npm i @streamfox/plugin-sdk
 ## Quick Start
 
 ```ts
-import { definePlugin, serve } from "@streamfox/plugin-sdk";
+import { definePlugin, filters, serve } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
@@ -96,6 +96,66 @@ Examples:
 - `/plugin_catalog/featured/catalog?page=0&experimental=streamfox:beta`
 
 Legacy structured query params such as `request`, `schemaVersion`, `context`, `experimental`, `filters`, `sort`, `playback`, and `videoFingerprint` are rejected on GET resource routes.
+
+## Catalog Filter Ergonomics
+
+Catalog filters support:
+
+- reusable `filterSets` shared across endpoints
+- richer filter metadata for UI and docs
+- `filters.*` helpers for authoring plain manifest-compatible filter specs
+- query alias normalization through `options[].aliases`
+
+Example:
+
+```ts
+import { definePlugin, filters } from "@streamfox/plugin-sdk";
+
+const plugin = definePlugin({
+  plugin: {
+    id: "com.example.catalog",
+    name: "Catalog Demo",
+    version: "0.1.0",
+  },
+  resources: {
+    catalog: {
+      filterSets: {
+        commonCatalogFilters: [
+          filters.select("language", {
+            label: "Language",
+            group: "regional",
+            options: [
+              { label: "Japanese", value: "ja", aliases: ["Japanese (ja)"] },
+              { label: "English", value: "en", aliases: ["English (en)"] },
+            ],
+          }),
+          filters.select("genre", {
+            options: [
+              { label: "Action", value: "action", aliases: ["Action"] },
+              { label: "Drama", value: "drama" },
+            ],
+          }),
+        ],
+      },
+      endpoints: [
+        {
+          id: "discover",
+          name: "Discover",
+          mediaTypes: ["movie"],
+          filterSetRefs: ["commonCatalogFilters"],
+          filters: [filters.range("year")],
+        },
+      ],
+      handler: async () => ({ items: [] }),
+    },
+  },
+});
+```
+
+Prefer semantic endpoint IDs such as `discover`, `popular`, and `search`. Keep variable filters in the query string:
+
+- `/catalog/movie/discover?language=ja`
+- `/catalog/movie/discover?year=2024`
 
 ## Custom Frontends
 

@@ -32,6 +32,7 @@ At least one resource is required.
 
 ```ts
 {
+  filterSets?: Record<string, FilterSpec[]>;
   endpoints: CatalogEndpoint[];
   handler: PluginHandler<"catalog">;
 }
@@ -42,9 +43,35 @@ At least one resource is required.
 - `id: string`
 - `name: string`
 - `mediaTypes: MediaType[]`
-- `filters?: Array<{ key, valueType, isRequired?, allowedValues? }>`
+- `filterSetRefs?: string[]`
+- `filters?: FilterSpec[]`
 - `paging?: { defaultPageSize?, maxPageSize? }`
 - `sorts?: Array<{ key, directions: ("ascending"|"descending")[] }>`
+
+`FilterSpec`:
+
+- `key: string`
+- `valueType: "string" | "int" | "bool" | "stringList" | "intRange"`
+- `isRequired?: boolean`
+- `label?: string`
+- `description?: string`
+- `placeholder?: string`
+- `group?: string`
+- `control?: "select" | "multi_select" | "text" | "number" | "range" | "toggle"`
+- `defaultValue?: string | number | boolean | string[] | { min?: number; max?: number }`
+- `options?: Array<{ value: string; label: string; aliases?: string[] }>`
+- `allowedValues?: string[]`
+
+`allowedValues` is still decoded for compatibility, but `options` is the richer canonical model going forward.
+
+Helper builders are exported from the SDK:
+
+- `filters.text(key, options?)`
+- `filters.select(key, options)`
+- `filters.multiSelect(key, options)`
+- `filters.number(key, options?)`
+- `filters.range(key, options?)`
+- `filters.toggle(key, options?)`
 
 #### `meta`
 

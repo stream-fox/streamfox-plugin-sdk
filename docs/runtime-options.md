@@ -137,8 +137,19 @@ Legacy structured request params such as `request`, `schemaVersion`, `context`, 
 
 Examples:
 
-- `/catalog/movie/popular?genre=Action&year=2024&locale=el-GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc`
+- `/catalog/movie/discover?genre=action&language=ja&year=2024&locale=el-GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc`
 - `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
 - `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
 - `/subtitles/movie/tt0133093?videoHash=abc123&videoSize=1234567&filename=matrix.mkv&languagePreferences=en,el`
 - `/plugin_catalog/featured/catalog?page=0&experimental=streamfox:beta`
+
+Catalog query aliases are synthesized only from the endpoint's declared effective filters. Effective filters are the merged result of:
+
+- shared `catalog.filterSets`
+- endpoint `filterSetRefs`
+- endpoint-local `filters`
+
+When a filter option declares aliases, the parsed request normalizes to the canonical option value. For example, if `language` declares `{ value: "ja", aliases: ["Japanese (ja)"] }`, then both of these inputs become `language = "ja"` internally:
+
+- `/catalog/movie/discover?language=ja`
+- `/catalog/movie/discover?language=Japanese%20(ja)`
