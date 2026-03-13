@@ -11,7 +11,12 @@ import {
   type SchemaVersion,
   type SupportedTransport,
 } from "./types";
-import type { AnySettingField, InferSettings, InstallOptions, SettingPrimitive } from "./install";
+import type {
+  AnySettingField,
+  InferSettings,
+  InstallOptions,
+  SettingPrimitive,
+} from "./install";
 import { createPlugin, type MediaPlugin, type PluginHandler } from "./plugin";
 import { ProtocolError } from "./errors";
 
@@ -32,20 +37,26 @@ interface StreamResource<TSettings extends Record<string, SettingPrimitive>> {
   handler: PluginHandler<"stream", TSettings>;
 }
 
-interface SubtitlesResource<TSettings extends Record<string, SettingPrimitive>> {
+interface SubtitlesResource<
+  TSettings extends Record<string, SettingPrimitive>,
+> {
   mediaTypes: MediaType[];
   supportsHashLookup?: boolean;
   defaultLanguages?: string[];
   handler: PluginHandler<"subtitles", TSettings>;
 }
 
-interface PluginCatalogResource<TSettings extends Record<string, SettingPrimitive>> {
+interface PluginCatalogResource<
+  TSettings extends Record<string, SettingPrimitive>,
+> {
   endpoints: PluginCatalogEndpoint[];
   pluginKinds?: PluginKindRef[];
   handler: PluginHandler<"plugin_catalog", TSettings>;
 }
 
-export interface DefineResources<TSettings extends Record<string, SettingPrimitive>> {
+export interface DefineResources<
+  TSettings extends Record<string, SettingPrimitive>,
+> {
   catalog?: CatalogResource<TSettings>;
   meta?: MetaResource<TSettings>;
   stream?: StreamResource<TSettings>;
@@ -53,7 +64,9 @@ export interface DefineResources<TSettings extends Record<string, SettingPrimiti
   pluginCatalog?: PluginCatalogResource<TSettings>;
 }
 
-export interface DefinePluginOptions<TFields extends readonly AnySettingField[] = readonly AnySettingField[]> {
+export interface DefinePluginOptions<
+  TFields extends readonly AnySettingField[] = readonly AnySettingField[],
+> {
   plugin: PluginInfo;
   resources: DefineResources<InferSettings<TFields>>;
   install?: InstallOptions<TFields>;
@@ -61,9 +74,9 @@ export interface DefinePluginOptions<TFields extends readonly AnySettingField[] 
   experimental?: ExperimentalField[];
 }
 
-export function definePlugin<TFields extends readonly AnySettingField[] = readonly AnySettingField[]>(
-  options: DefinePluginOptions<TFields>,
-): MediaPlugin<InferSettings<TFields>> {
+export function definePlugin<
+  TFields extends readonly AnySettingField[] = readonly AnySettingField[],
+>(options: DefinePluginOptions<TFields>): MediaPlugin<InferSettings<TFields>> {
   const resources = options.resources ?? {};
 
   const manifestCapabilities: Manifest["capabilities"] = [];
@@ -108,7 +121,9 @@ export function definePlugin<TFields extends readonly AnySettingField[] = readon
       ...(resources.subtitles.supportsHashLookup !== undefined
         ? { supportsHashLookup: resources.subtitles.supportsHashLookup }
         : {}),
-      ...(resources.subtitles.defaultLanguages ? { defaultLanguages: resources.subtitles.defaultLanguages } : {}),
+      ...(resources.subtitles.defaultLanguages
+        ? { defaultLanguages: resources.subtitles.defaultLanguages }
+        : {}),
     });
     handlers.subtitles = resources.subtitles.handler;
   }
@@ -122,7 +137,9 @@ export function definePlugin<TFields extends readonly AnySettingField[] = readon
   }
 
   if (manifestCapabilities.length === 0) {
-    throw ProtocolError.manifestInvalid("definePlugin requires at least one resource");
+    throw ProtocolError.manifestInvalid(
+      "definePlugin requires at least one resource",
+    );
   }
 
   return createPlugin<InferSettings<TFields>>({

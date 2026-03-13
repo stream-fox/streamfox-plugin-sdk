@@ -15,26 +15,42 @@ import {
 import { deepFreeze, isRecord } from "./utils";
 import { validateManifest } from "./validators";
 
-export interface HandlerContext<TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>> {
+export interface HandlerContext<
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
+> {
   traceId?: string;
   headers?: Record<string, string | string[] | undefined>;
   request?: Request;
   settings?: Readonly<Partial<TSettings>>;
 }
 
-export type HandlerResponse<K extends ResourceKind> = Omit<ResourceResponseMap[K], "schemaVersion"> & {
+export type HandlerResponse<K extends ResourceKind> = Omit<
+  ResourceResponseMap[K],
+  "schemaVersion"
+> & {
   schemaVersion?: ResourceResponseMap[K]["schemaVersion"];
 };
 
 export type PluginHandler<
   K extends ResourceKind,
-  TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>,
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
 > = (
   request: ResourceRequestMap[K],
   context: HandlerContext<TSettings>,
 ) => Promise<HandlerResponse<K>> | HandlerResponse<K>;
 
-export interface PluginHandlers<TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>> {
+export interface PluginHandlers<
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
+> {
   catalog?: PluginHandler<"catalog", TSettings>;
   meta?: PluginHandler<"meta", TSettings>;
   stream?: PluginHandler<"stream", TSettings>;
@@ -42,13 +58,23 @@ export interface PluginHandlers<TSettings extends Record<string, SettingPrimitiv
   pluginCatalog?: PluginHandler<"plugin_catalog", TSettings>;
 }
 
-export interface CreatePluginOptions<TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>> {
+export interface CreatePluginOptions<
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
+> {
   manifest: Manifest;
   handlers: PluginHandlers<TSettings>;
   install?: InstallOptions;
 }
 
-export interface MediaPlugin<TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>> {
+export interface MediaPlugin<
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
+> {
   readonly manifest: Manifest;
   readonly handlers: Readonly<PluginHandlers<TSettings>>;
   readonly install?: Readonly<InstallOptions>;
@@ -107,7 +133,9 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
   };
 }
 
-function withResponseSchemaVersion<K extends ResourceKind>(response: HandlerResponse<K>): ResourceResponseMap[K] {
+function withResponseSchemaVersion<K extends ResourceKind>(
+  response: HandlerResponse<K>,
+): ResourceResponseMap[K] {
   if (isRecord(response) && !("schemaVersion" in response)) {
     return {
       ...(response as Record<string, unknown>),
@@ -118,9 +146,12 @@ function withResponseSchemaVersion<K extends ResourceKind>(response: HandlerResp
   return response as ResourceResponseMap[K];
 }
 
-export function createPlugin<TSettings extends Record<string, SettingPrimitive> = Record<string, SettingPrimitive>>(
-  options: CreatePluginOptions<TSettings>,
-): MediaPlugin<TSettings> {
+export function createPlugin<
+  TSettings extends Record<string, SettingPrimitive> = Record<
+    string,
+    SettingPrimitive
+  >,
+>(options: CreatePluginOptions<TSettings>): MediaPlugin<TSettings> {
   const manifest = validateManifest(options.manifest);
   const handlers = { ...options.handlers } as PluginHandlers<TSettings>;
   const requiredKeys = requiredHandlerKeys(manifest);
@@ -143,7 +174,9 @@ export function createPlugin<TSettings extends Record<string, SettingPrimitive> 
 
   const frozenManifest = deepFreeze({ ...manifest });
   const frozenHandlers = deepFreeze(handlers);
-  const frozenInstall = options.install ? deepFreeze({ ...options.install }) : undefined;
+  const frozenInstall = options.install
+    ? deepFreeze({ ...options.install })
+    : undefined;
   const index = buildManifestIndex(frozenManifest);
 
   return {
@@ -153,7 +186,9 @@ export function createPlugin<TSettings extends Record<string, SettingPrimitive> 
     index,
     async handle(resource, request, context = {}) {
       const handlerKey = resourceToHandlerKey[resource] as HandlerKey;
-      const handler = frozenHandlers[handlerKey] as PluginHandler<typeof resource, TSettings> | undefined;
+      const handler = frozenHandlers[handlerKey] as
+        | PluginHandler<typeof resource, TSettings>
+        | undefined;
 
       if (!handler) {
         throw ProtocolError.noHandler(resource, context.traceId);

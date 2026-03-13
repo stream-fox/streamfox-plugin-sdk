@@ -1,27 +1,25 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "catalogID": "top",
   "mediaType": "movie",
   "query": "alien",
-  "page": {"index": 0, "size": 20},
-  "sort": {"key": "year", "direction": "descending"},
+  "page": { "index": 0, "size": 20 },
+  "sort": { "key": "year", "direction": "descending" },
   "filters": [
     {
       "key": "genre",
-      "value": {"kind": "string", "string": "Drama"}
+      "value": { "kind": "string", "string": "Drama" }
     },
     {
       "key": "year",
-      "value": {"kind": "intRange", "intRange": {"min": 2010, "max": 2024}}
+      "value": { "kind": "intRange", "intRange": { "min": 2010, "max": 2024 } }
     }
   ],
   "context": {
     "locale": "en-US",
     "regionCode": "US",
     "traceID": "trace-123",
-    "settingsSnapshot": [
-      {"key": "quality", "value": "high"}
-    ]
+    "settingsSnapshot": [{ "key": "quality", "value": "high" }]
   },
   "experimental": []
 }

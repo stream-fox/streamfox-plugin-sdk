@@ -7,11 +7,25 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { normalizeError, ProtocolError } from "./errors";
 import { parseJsonWithLimits, type JsonParseLimits } from "./schema";
-import type { AnySettingField, InstallOptions, SettingPrimitive } from "./install";
+import type {
+  AnySettingField,
+  InstallOptions,
+  SettingPrimitive,
+} from "./install";
 import { parseInstallSettings } from "./install";
 import type { MediaPlugin } from "./plugin";
-import { validateRedirectInstruction, validateRequest, validateResponse } from "./validators";
-import { SCHEMA_VERSION_CURRENT, type RequestPage, type RequestSort, type ResourceKind, type ResourceRequestMap } from "./types";
+import {
+  validateRedirectInstruction,
+  validateRequest,
+  validateResponse,
+} from "./validators";
+import {
+  SCHEMA_VERSION_CURRENT,
+  type RequestPage,
+  type RequestSort,
+  type ResourceKind,
+  type ResourceRequestMap,
+} from "./types";
 import { isRecord } from "./utils";
 
 const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
@@ -23,7 +37,9 @@ const TEXT_MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 const moduleDir =
-  typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+  typeof __dirname === "string"
+    ? __dirname
+    : path.dirname(fileURLToPath(import.meta.url));
 
 export interface FrontendOptions {
   enabled?: boolean;
@@ -73,12 +89,19 @@ function normalizePathPrefix(value: string | undefined): string {
   }
 
   const withLeadingSlash = value.startsWith("/") ? value : `/${value}`;
-  return withLeadingSlash.endsWith("/") ? withLeadingSlash.slice(0, -1) : withLeadingSlash;
+  return withLeadingSlash.endsWith("/")
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
 }
 
-function buildParseLimits(options: CreateServerOptions, traceId?: string): JsonParseLimits {
+function buildParseLimits(
+  options: CreateServerOptions,
+  traceId?: string,
+): JsonParseLimits {
   return {
-    ...(options.maxPayloadBytes !== undefined ? { maxPayloadBytes: options.maxPayloadBytes } : {}),
+    ...(options.maxPayloadBytes !== undefined
+      ? { maxPayloadBytes: options.maxPayloadBytes }
+      : {}),
     ...(options.maxDepth !== undefined ? { maxDepth: options.maxDepth } : {}),
     ...(traceId !== undefined ? { traceId } : {}),
   };
@@ -93,14 +116,22 @@ function parseOptionalString(value: string | null): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function parseIntegerQueryValue(value: string | null, key: string, traceId?: string): number | undefined {
+function parseIntegerQueryValue(
+  value: string | null,
+  key: string,
+  traceId?: string,
+): number | undefined {
   if (value === null || value.trim().length === 0) {
     return undefined;
   }
 
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed)) {
-    throw ProtocolError.requestInvalid(`query parameter '${key}' must be an integer`, { key, value }, traceId);
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must be an integer`,
+      { key, value },
+      traceId,
+    );
   }
 
   return parsed;
@@ -120,7 +151,10 @@ function parseJsonQueryParam<T>(
   return parseJsonWithLimits<T>(raw, buildParseLimits(options, traceId));
 }
 
-function parseStringListQuery(searchParams: URLSearchParams, key: string): string[] | undefined {
+function parseStringListQuery(
+  searchParams: URLSearchParams,
+  key: string,
+): string[] | undefined {
   const values = searchParams
     .getAll(key)
     .flatMap((value) => value.split(","))
@@ -131,7 +165,11 @@ function parseStringListQuery(searchParams: URLSearchParams, key: string): strin
 }
 
 function assertNeverResource(value: never, traceId?: string): never {
-  throw ProtocolError.requestInvalid(`Unsupported resource '${String(value)}'`, undefined, traceId);
+  throw ProtocolError.requestInvalid(
+    `Unsupported resource '${String(value)}'`,
+    undefined,
+    traceId,
+  );
 }
 
 function resolveIdentifierFromPathOrQuery(
@@ -151,22 +189,34 @@ function withCanonicalRouteIdentifiers<K extends ResourceKind>(
     case "catalog":
       return {
         ...request,
-        ...(routeIdentifiers.catalogID !== undefined ? { catalogID: routeIdentifiers.catalogID } : {}),
-        ...(routeIdentifiers.mediaType !== undefined ? { mediaType: routeIdentifiers.mediaType } : {}),
+        ...(routeIdentifiers.catalogID !== undefined
+          ? { catalogID: routeIdentifiers.catalogID }
+          : {}),
+        ...(routeIdentifiers.mediaType !== undefined
+          ? { mediaType: routeIdentifiers.mediaType }
+          : {}),
       } as ResourceRequestMap[K];
     case "meta":
     case "stream":
     case "subtitles":
       return {
         ...request,
-        ...(routeIdentifiers.itemID !== undefined ? { itemID: routeIdentifiers.itemID } : {}),
-        ...(routeIdentifiers.mediaType !== undefined ? { mediaType: routeIdentifiers.mediaType } : {}),
+        ...(routeIdentifiers.itemID !== undefined
+          ? { itemID: routeIdentifiers.itemID }
+          : {}),
+        ...(routeIdentifiers.mediaType !== undefined
+          ? { mediaType: routeIdentifiers.mediaType }
+          : {}),
       } as ResourceRequestMap[K];
     case "plugin_catalog":
       return {
         ...request,
-        ...(routeIdentifiers.catalogID !== undefined ? { catalogID: routeIdentifiers.catalogID } : {}),
-        ...(routeIdentifiers.pluginKind !== undefined ? { pluginKind: routeIdentifiers.pluginKind } : {}),
+        ...(routeIdentifiers.catalogID !== undefined
+          ? { catalogID: routeIdentifiers.catalogID }
+          : {}),
+        ...(routeIdentifiers.pluginKind !== undefined
+          ? { pluginKind: routeIdentifiers.pluginKind }
+          : {}),
       } as ResourceRequestMap[K];
     default:
       return assertNeverResource(resource);
@@ -178,10 +228,19 @@ function parseSchemaVersionFromQuery(
   options: CreateServerOptions,
   traceId?: string,
 ): { major: number; minor: number } {
-  const explicit = parseJsonQueryParam<unknown>(searchParams, "schemaVersion", options, traceId);
+  const explicit = parseJsonQueryParam<unknown>(
+    searchParams,
+    "schemaVersion",
+    options,
+    traceId,
+  );
   if (explicit !== undefined) {
     if (!isRecord(explicit)) {
-      throw ProtocolError.requestInvalid("query parameter 'schemaVersion' must be a JSON object", { schemaVersion: explicit }, traceId);
+      throw ProtocolError.requestInvalid(
+        "query parameter 'schemaVersion' must be a JSON object",
+        { schemaVersion: explicit },
+        traceId,
+      );
     }
 
     const major = explicit.major;
@@ -214,13 +273,26 @@ function parsePageFromQuery(
   options: CreateServerOptions,
   traceId?: string,
 ): RequestPage | undefined {
-  const page = parseJsonQueryParam<RequestPage>(searchParams, "page", options, traceId);
+  const page = parseJsonQueryParam<RequestPage>(
+    searchParams,
+    "page",
+    options,
+    traceId,
+  );
   if (page) {
     return page;
   }
 
-  const index = parseIntegerQueryValue(searchParams.get("pageIndex"), "pageIndex", traceId);
-  const size = parseIntegerQueryValue(searchParams.get("pageSize"), "pageSize", traceId);
+  const index = parseIntegerQueryValue(
+    searchParams.get("pageIndex"),
+    "pageIndex",
+    traceId,
+  );
+  const size = parseIntegerQueryValue(
+    searchParams.get("pageSize"),
+    "pageSize",
+    traceId,
+  );
   if (index === undefined && size === undefined) {
     return undefined;
   }
@@ -236,7 +308,12 @@ function parseSortFromQuery(
   options: CreateServerOptions,
   traceId?: string,
 ): RequestSort | undefined {
-  const sort = parseJsonQueryParam<RequestSort>(searchParams, "sort", options, traceId);
+  const sort = parseJsonQueryParam<RequestSort>(
+    searchParams,
+    "sort",
+    options,
+    traceId,
+  );
   if (sort) {
     return sort;
   }
@@ -262,33 +339,81 @@ function parseRequestFromQuery<K extends ResourceKind>(
 ): ResourceRequestMap[K] {
   const explicitRequest = parseOptionalString(searchParams.get("request"));
   if (explicitRequest) {
-    const parsed = parseJsonWithLimits<unknown>(explicitRequest, buildParseLimits(options, headerTraceId));
+    const parsed = parseJsonWithLimits<unknown>(
+      explicitRequest,
+      buildParseLimits(options, headerTraceId),
+    );
     if (!isRecord(parsed)) {
-      throw ProtocolError.requestInvalid("query parameter 'request' must be a JSON object", undefined, headerTraceId);
+      throw ProtocolError.requestInvalid(
+        "query parameter 'request' must be a JSON object",
+        undefined,
+        headerTraceId,
+      );
     }
-    return withCanonicalRouteIdentifiers(resource, parsed as ResourceRequestMap[K], routeIdentifiers);
+    return withCanonicalRouteIdentifiers(
+      resource,
+      parsed as ResourceRequestMap[K],
+      routeIdentifiers,
+    );
   }
 
-  const schemaVersion = parseSchemaVersionFromQuery(searchParams, options, headerTraceId);
-  const parsedContext = parseJsonQueryParam<Record<string, unknown>>(searchParams, "context", options, headerTraceId) ?? {};
+  const schemaVersion = parseSchemaVersionFromQuery(
+    searchParams,
+    options,
+    headerTraceId,
+  );
+  const parsedContext =
+    parseJsonQueryParam<Record<string, unknown>>(
+      searchParams,
+      "context",
+      options,
+      headerTraceId,
+    ) ?? {};
   const queryTraceId = parseOptionalString(searchParams.get("traceID"));
   if (queryTraceId) {
     parsedContext.traceID = queryTraceId;
   }
 
-  const context = Object.keys(parsedContext).length > 0 ? parsedContext : undefined;
-  const experimental = parseJsonQueryParam<unknown[]>(searchParams, "experimental", options, headerTraceId);
-  const mediaType = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "mediaType");
-  const catalogID = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "catalogID");
-  const itemID = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "itemID");
-  const pluginKind = resolveIdentifierFromPathOrQuery(searchParams, routeIdentifiers, "pluginKind");
+  const context =
+    Object.keys(parsedContext).length > 0 ? parsedContext : undefined;
+  const experimental = parseJsonQueryParam<unknown[]>(
+    searchParams,
+    "experimental",
+    options,
+    headerTraceId,
+  );
+  const mediaType = resolveIdentifierFromPathOrQuery(
+    searchParams,
+    routeIdentifiers,
+    "mediaType",
+  );
+  const catalogID = resolveIdentifierFromPathOrQuery(
+    searchParams,
+    routeIdentifiers,
+    "catalogID",
+  );
+  const itemID = resolveIdentifierFromPathOrQuery(
+    searchParams,
+    routeIdentifiers,
+    "itemID",
+  );
+  const pluginKind = resolveIdentifierFromPathOrQuery(
+    searchParams,
+    routeIdentifiers,
+    "pluginKind",
+  );
 
   switch (resource) {
     case "catalog": {
       const query = parseOptionalString(searchParams.get("query"));
       const page = parsePageFromQuery(searchParams, options, headerTraceId);
       const sort = parseSortFromQuery(searchParams, options, headerTraceId);
-      const filters = parseJsonQueryParam<unknown[]>(searchParams, "filters", options, headerTraceId);
+      const filters = parseJsonQueryParam<unknown[]>(
+        searchParams,
+        "filters",
+        options,
+        headerTraceId,
+      );
 
       return {
         schemaVersion,
@@ -312,7 +437,12 @@ function parseRequestFromQuery<K extends ResourceKind>(
       } as ResourceRequestMap[K];
     case "stream": {
       const videoID = parseOptionalString(searchParams.get("videoID"));
-      const playback = parseJsonQueryParam<Record<string, unknown>>(searchParams, "playback", options, headerTraceId);
+      const playback = parseJsonQueryParam<Record<string, unknown>>(
+        searchParams,
+        "playback",
+        options,
+        headerTraceId,
+      );
 
       return {
         schemaVersion,
@@ -331,7 +461,10 @@ function parseRequestFromQuery<K extends ResourceKind>(
         options,
         headerTraceId,
       );
-      const languagePreferences = parseStringListQuery(searchParams, "languagePreferences");
+      const languagePreferences = parseStringListQuery(
+        searchParams,
+        "languagePreferences",
+      );
 
       return {
         schemaVersion,
@@ -362,7 +495,10 @@ function parseRequestFromQuery<K extends ResourceKind>(
   }
 }
 
-function buildTraceId(headerTraceId: string | undefined, requestBody: unknown): string {
+function buildTraceId(
+  headerTraceId: string | undefined,
+  requestBody: unknown,
+): string {
   if (headerTraceId && headerTraceId.trim().length > 0) {
     return headerTraceId;
   }
@@ -371,10 +507,13 @@ function buildTraceId(headerTraceId: string | undefined, requestBody: unknown): 
     typeof requestBody === "object" &&
     requestBody !== null &&
     "context" in requestBody &&
-    typeof (requestBody as { context?: { traceID?: string } }).context?.traceID === "string" &&
-    (requestBody as { context?: { traceID?: string } }).context?.traceID?.trim().length
+    typeof (requestBody as { context?: { traceID?: string } }).context
+      ?.traceID === "string" &&
+    (requestBody as { context?: { traceID?: string } }).context?.traceID?.trim()
+      .length
   ) {
-    return (requestBody as { context?: { traceID?: string } }).context?.traceID as string;
+    return (requestBody as { context?: { traceID?: string } }).context
+      ?.traceID as string;
   }
 
   return randomUUID();
@@ -398,12 +537,17 @@ async function sendStaticFile(filePath: string): Promise<Response> {
     status: 200,
     headers: {
       "content-type": responseMimeType(candidate),
-      "cache-control": candidate.endsWith(".html") ? "no-cache" : "public, max-age=3600",
+      "cache-control": candidate.endsWith(".html")
+        ? "no-cache"
+        : "public, max-age=3600",
     },
   });
 }
 
-function setCacheHeaders(response: Record<string, unknown>, headers: Headers): void {
+function setCacheHeaders(
+  response: Record<string, unknown>,
+  headers: Headers,
+): void {
   const cache = response.cache;
   if (!cache || typeof cache !== "object") {
     return;
@@ -421,7 +565,9 @@ function setCacheHeaders(response: Record<string, unknown>, headers: Headers): v
     directives.push(`max-age=${cacheObject.maxAgeSeconds}`);
   }
   if (Number.isInteger(cacheObject.staleWhileRevalidateSeconds)) {
-    directives.push(`stale-while-revalidate=${cacheObject.staleWhileRevalidateSeconds}`);
+    directives.push(
+      `stale-while-revalidate=${cacheObject.staleWhileRevalidateSeconds}`,
+    );
   }
   if (Number.isInteger(cacheObject.staleIfErrorSeconds)) {
     directives.push(`stale-if-error=${cacheObject.staleIfErrorSeconds}`);
@@ -432,9 +578,15 @@ function setCacheHeaders(response: Record<string, unknown>, headers: Headers): v
   }
 }
 
-function configureFrontend(app: Hono, prefix: string, options: FrontendOptions): void {
+function configureFrontend(
+  app: Hono,
+  prefix: string,
+  options: FrontendOptions,
+): void {
   const mountPath = normalizePathPrefix(options.mountPath ?? "/");
-  const assetsMountPath = normalizePathPrefix(options.assetsMountPath ?? `${mountPath}/assets`);
+  const assetsMountPath = normalizePathPrefix(
+    options.assetsMountPath ?? `${mountPath}/assets`,
+  );
   const distPath = options.distPath ?? path.resolve(moduleDir, "ui");
 
   if (!existsSync(distPath)) {
@@ -445,7 +597,9 @@ function configureFrontend(app: Hono, prefix: string, options: FrontendOptions):
   const assetsPath = path.join(distPath, "assets");
 
   const rootRoute = `${prefix}${mountPath}` || "/";
-  const rootRouteWithSlash = rootRoute.endsWith("/") ? rootRoute : `${rootRoute}/`;
+  const rootRouteWithSlash = rootRoute.endsWith("/")
+    ? rootRoute
+    : `${rootRoute}/`;
   const assetsRoutePrefix = `${prefix}${assetsMountPath}` || "/assets";
   const assetsRoutePattern = assetsRoutePrefix.endsWith("/")
     ? `${assetsRoutePrefix}*`
@@ -460,13 +614,19 @@ function configureFrontend(app: Hono, prefix: string, options: FrontendOptions):
       : requestPath.slice(assetsRoutePrefix.length);
     const candidate = path.resolve(assetsPath, file);
     if (!candidate.startsWith(assetsPath)) {
-      return context.json(ProtocolError.requestInvalid("Invalid asset path").toJSON(), 400);
+      return context.json(
+        ProtocolError.requestInvalid("Invalid asset path").toJSON(),
+        400,
+      );
     }
 
     try {
       return await sendStaticFile(candidate);
     } catch {
-      return context.json({ error: { code: "NO_HANDLER", message: "Asset not found" } }, 404);
+      return context.json(
+        { error: { code: "NO_HANDLER", message: "Asset not found" } },
+        404,
+      );
     }
   });
 }
@@ -485,7 +645,9 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
       title: base.title ?? plugin.manifest.plugin.name,
       subtitle: base.subtitle ?? plugin.manifest.plugin.version,
       description:
-        base.description ?? plugin.manifest.plugin.description ?? "Install and configure this plugin before adding it to your app.",
+        base.description ??
+        plugin.manifest.plugin.description ??
+        "Install and configure this plugin before adding it to your app.",
       ...(resolvedLogo !== undefined ? { logo: resolvedLogo } : {}),
       installButtonText: base.installButtonText ?? "Install Plugin",
       openManifestButtonText: base.openManifestButtonText ?? "Open Manifest",
@@ -499,17 +661,25 @@ function normalizeInstaller<TSettings extends Record<string, SettingPrimitive>>(
 
   return {
     enabled: explicit.enabled ?? base.enabled ?? true,
-    configurationRequired: explicit.configurationRequired ?? base.configurationRequired ?? false,
+    configurationRequired:
+      explicit.configurationRequired ?? base.configurationRequired ?? false,
     title: explicit.title ?? base.title ?? plugin.manifest.plugin.name,
-    subtitle: explicit.subtitle ?? base.subtitle ?? plugin.manifest.plugin.version,
+    subtitle:
+      explicit.subtitle ?? base.subtitle ?? plugin.manifest.plugin.version,
     description:
       explicit.description ??
       base.description ??
       plugin.manifest.plugin.description ??
       "Install and configure this plugin before adding it to your app.",
-    ...(resolvedExplicitLogo !== undefined ? { logo: resolvedExplicitLogo } : {}),
-    installButtonText: explicit.installButtonText ?? base.installButtonText ?? "Install Plugin",
-    openManifestButtonText: explicit.openManifestButtonText ?? base.openManifestButtonText ?? "Open Manifest",
+    ...(resolvedExplicitLogo !== undefined
+      ? { logo: resolvedExplicitLogo }
+      : {}),
+    installButtonText:
+      explicit.installButtonText ?? base.installButtonText ?? "Install Plugin",
+    openManifestButtonText:
+      explicit.openManifestButtonText ??
+      base.openManifestButtonText ??
+      "Open Manifest",
     fields,
   };
 }
@@ -540,10 +710,9 @@ function buildStudioConfig(
   };
 }
 
-export function createServer<TSettings extends Record<string, SettingPrimitive>>(
-  plugin: MediaPlugin<TSettings>,
-  options: CreateServerOptions = {},
-): Hono {
+export function createServer<
+  TSettings extends Record<string, SettingPrimitive>,
+>(plugin: MediaPlugin<TSettings>, options: CreateServerOptions = {}): Hono {
   const app = new Hono();
   const prefix = normalizePathPrefix(options.basePath);
   const installer = normalizeInstaller(plugin, options.installer);
@@ -556,7 +725,10 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
     const traceId = context.req.header("x-trace-id") ?? randomUUID();
     const normalized = normalizeError(error, traceId);
     context.header("x-trace-id", traceId);
-    return context.json(normalized.toJSON(), normalized.status as 400 | 404 | 500);
+    return context.json(
+      normalized.toJSON(),
+      normalized.status as 400 | 404 | 500,
+    );
   });
 
   app.get(`${prefix}/manifest`, (context) => {
@@ -568,7 +740,10 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
   app.get(`${prefix}/studio-config`, (context) => {
     const traceId = context.req.header("x-trace-id") ?? randomUUID();
     context.header("x-trace-id", traceId);
-    return context.json(buildStudioConfig(prefix, options.deeplink, installer), 200);
+    return context.json(
+      buildStudioConfig(prefix, options.deeplink, installer),
+      200,
+    );
   });
 
   const mediaItemRouteIdentifiers = (context: any): RouteIdentifiers => ({
@@ -628,10 +803,18 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
 
       context.header("x-trace-id", traceId);
 
-      const validRequest = validateRequest(route.resource, request, plugin.manifest, plugin.index, traceId);
-      const settings = parseInstallSettings(installer.fields, searchParams, traceId) as
-        | Partial<TSettings>
-        | undefined;
+      const validRequest = validateRequest(
+        route.resource,
+        request,
+        plugin.manifest,
+        plugin.index,
+        traceId,
+      );
+      const settings = parseInstallSettings(
+        installer.fields,
+        searchParams,
+        traceId,
+      ) as Partial<TSettings> | undefined;
 
       const response = await plugin.handle(route.resource, validRequest, {
         traceId,
@@ -651,7 +834,11 @@ export function createServer<TSettings extends Record<string, SettingPrimitive>>
         });
       }
 
-      const validResponse = validateResponse(route.resource, response, traceId) as Record<string, unknown>;
+      const validResponse = validateResponse(
+        route.resource,
+        response,
+        traceId,
+      ) as Record<string, unknown>;
 
       const headers = new Headers({
         "content-type": "application/json; charset=utf-8",

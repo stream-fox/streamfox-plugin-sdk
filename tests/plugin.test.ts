@@ -9,7 +9,9 @@ const manifest: Manifest = {
 
 describe("createPlugin", () => {
   it("requires handlers declared in manifest", () => {
-    expect(() => createPlugin({ manifest, handlers: {} })).toThrow(ProtocolError);
+    expect(() => createPlugin({ manifest, handlers: {} })).toThrow(
+      ProtocolError,
+    );
   });
 
   it("rejects undeclared handlers", () => {
@@ -17,8 +19,14 @@ describe("createPlugin", () => {
       createPlugin({
         manifest,
         handlers: {
-          meta: async () => ({ schemaVersion: { major: 1, minor: 0 }, item: null }),
-          stream: async () => ({ schemaVersion: { major: 1, minor: 0 }, streams: [] }),
+          meta: async () => ({
+            schemaVersion: { major: 1, minor: 0 },
+            item: null,
+          }),
+          stream: async () => ({
+            schemaVersion: { major: 1, minor: 0 },
+            streams: [],
+          }),
         },
       }),
     ).toThrow(ProtocolError);
@@ -28,7 +36,10 @@ describe("createPlugin", () => {
     const plugin = createPlugin({
       manifest,
       handlers: {
-        meta: async () => ({ schemaVersion: { major: 1, minor: 0 }, item: null }),
+        meta: async () => ({
+          schemaVersion: { major: 1, minor: 0 },
+          item: null,
+        }),
       },
     });
 

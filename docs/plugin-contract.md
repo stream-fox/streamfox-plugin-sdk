@@ -14,15 +14,15 @@ definePlugin({
 
 ### `plugin`
 
-| Field | Type | Required |
-| --- | --- | --- |
-| `id` | `string` | yes |
-| `name` | `string` | yes |
-| `version` | `string` semver | yes |
-| `description` | `string` | no |
-| `logo` | `string` URL | no |
-| `author` | `{ name, email?, website? }` | no |
-| `homepage` | `string` URL | no |
+| Field         | Type                         | Required |
+| ------------- | ---------------------------- | -------- |
+| `id`          | `string`                     | yes      |
+| `name`        | `string`                     | yes      |
+| `version`     | `string` semver              | yes      |
+| `description` | `string`                     | no       |
+| `logo`        | `string` URL                 | no       |
+| `author`      | `{ name, email?, website? }` | no       |
+| `homepage`    | `string` URL                 | no       |
 
 ### `resources`
 

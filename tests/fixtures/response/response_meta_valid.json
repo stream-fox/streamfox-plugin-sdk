@@ -1,8 +1,8 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "item": {
     "summary": {
-      "id": {"namespace": "imdb", "value": "tt125"},
+      "id": { "namespace": "imdb", "value": "tt125" },
       "mediaType": "movie",
       "title": "Big Buck Bunny",
       "genres": [],
@@ -11,7 +11,7 @@
     "defaultVideoID": "vid1",
     "trailers": [
       {
-        "transport": {"kind": "youtube", "id": "trailer123"}
+        "transport": { "kind": "youtube", "id": "trailer123" }
       }
     ],
     "videos": [
@@ -20,12 +20,15 @@
         "title": "Main video",
         "streams": [
           {
-            "transport": {"kind": "http", "url": "https://cdn.example.com/movie.mp4"}
+            "transport": {
+              "kind": "http",
+              "url": "https://cdn.example.com/movie.mp4"
+            }
           }
         ],
         "trailers": [
           {
-            "transport": {"kind": "youtube", "id": "videoTrailer123"}
+            "transport": { "kind": "youtube", "id": "videoTrailer123" }
           }
         ]
       }

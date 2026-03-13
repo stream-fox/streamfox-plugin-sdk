@@ -18,9 +18,19 @@ export type PluginKindRef = OpenString<
   "catalog" | "meta" | "stream" | "subtitles" | "plugin_catalog"
 >;
 
-export type FilterValueType = "string" | "int" | "bool" | "stringList" | "intRange";
+export type FilterValueType =
+  | "string"
+  | "int"
+  | "bool"
+  | "stringList"
+  | "intRange";
 export type SortDirection = "ascending" | "descending";
-export type SupportedTransport = "http" | "youtube" | "torrent" | "usenet" | "archive";
+export type SupportedTransport =
+  | "http"
+  | "youtube"
+  | "torrent"
+  | "usenet"
+  | "archive";
 export type ArchiveFormat = "rar" | "zip" | "7zip" | "tar" | "tgz";
 export type RedirectStatus = 302 | 307;
 
@@ -174,11 +184,46 @@ export interface IntRange {
 }
 
 export type FilterValue =
-  | { kind: "string"; string?: string; int?: never; bool?: never; stringList?: never; intRange?: never }
-  | { kind: "int"; string?: never; int?: number; bool?: never; stringList?: never; intRange?: never }
-  | { kind: "bool"; string?: never; int?: never; bool?: boolean; stringList?: never; intRange?: never }
-  | { kind: "stringList"; string?: never; int?: never; bool?: never; stringList?: string[]; intRange?: never }
-  | { kind: "intRange"; string?: never; int?: never; bool?: never; stringList?: never; intRange?: IntRange };
+  | {
+      kind: "string";
+      string?: string;
+      int?: never;
+      bool?: never;
+      stringList?: never;
+      intRange?: never;
+    }
+  | {
+      kind: "int";
+      string?: never;
+      int?: number;
+      bool?: never;
+      stringList?: never;
+      intRange?: never;
+    }
+  | {
+      kind: "bool";
+      string?: never;
+      int?: never;
+      bool?: boolean;
+      stringList?: never;
+      intRange?: never;
+    }
+  | {
+      kind: "stringList";
+      string?: never;
+      int?: never;
+      bool?: never;
+      stringList?: string[];
+      intRange?: never;
+    }
+  | {
+      kind: "intRange";
+      string?: never;
+      int?: never;
+      bool?: never;
+      stringList?: never;
+      intRange?: IntRange;
+    };
 
 export interface RequestFilter {
   key: string;
@@ -463,10 +508,20 @@ export interface ResourceResponseMap {
   plugin_catalog: PluginCatalogResponse;
 }
 
-export type HandlerKey = "catalog" | "meta" | "stream" | "subtitles" | "pluginCatalog";
+export type HandlerKey =
+  | "catalog"
+  | "meta"
+  | "stream"
+  | "subtitles"
+  | "pluginCatalog";
 
 export interface ManifestIndex {
-  readonly capabilityByKind: Readonly<Partial<Record<ResourceKind, Capability>>>;
+  readonly capabilityByKind: Readonly<
+    Partial<Record<ResourceKind, Capability>>
+  >;
   readonly catalogEndpointByID: ReadonlyMap<string, CatalogEndpoint>;
-  readonly pluginCatalogEndpointByID: ReadonlyMap<string, PluginCatalogEndpoint>;
+  readonly pluginCatalogEndpointByID: ReadonlyMap<
+    string,
+    PluginCatalogEndpoint
+  >;
 }

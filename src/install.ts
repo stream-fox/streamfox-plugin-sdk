@@ -25,35 +25,49 @@ interface BaseSettingField<K extends string, T extends SettingFieldType> {
   queryParam?: string;
 }
 
-export interface TextSettingField<K extends string = string> extends BaseSettingField<K, "text"> {
+export interface TextSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "text"> {
   defaultValue?: string;
 }
 
-export interface PasswordSettingField<K extends string = string> extends BaseSettingField<K, "password"> {
+export interface PasswordSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "password"> {
   defaultValue?: string;
 }
 
-export interface TextareaSettingField<K extends string = string> extends BaseSettingField<K, "textarea"> {
+export interface TextareaSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "textarea"> {
   defaultValue?: string;
 }
 
-export interface NumberSettingField<K extends string = string> extends BaseSettingField<K, "number"> {
+export interface NumberSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "number"> {
   defaultValue?: number;
   min?: number;
   max?: number;
   step?: number;
 }
 
-export interface CheckboxSettingField<K extends string = string> extends BaseSettingField<K, "checkbox"> {
+export interface CheckboxSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "checkbox"> {
   defaultValue?: boolean;
 }
 
-export interface SelectSettingField<K extends string = string> extends BaseSettingField<K, "select"> {
+export interface SelectSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "select"> {
   options: SettingFieldOption[];
   defaultValue?: string;
 }
 
-export interface MultiSelectSettingField<K extends string = string> extends BaseSettingField<K, "multi_select"> {
+export interface MultiSelectSettingField<
+  K extends string = string,
+> extends BaseSettingField<K, "multi_select"> {
   options: SettingFieldOption[];
   defaultValue?: string[];
   searchable?: boolean;
@@ -77,13 +91,15 @@ type ValueForField<F extends AnySettingField> = F extends NumberSettingField
     ? boolean
     : F extends MultiSelectSettingField
       ? string[]
-    : string;
+      : string;
 
 export type InferSettings<TFields extends readonly AnySettingField[]> = {
   [Field in TFields[number] as Field["key"]]: ValueForField<Field>;
 };
 
-export interface InstallOptions<TFields extends readonly AnySettingField[] = readonly AnySettingField[]> {
+export interface InstallOptions<
+  TFields extends readonly AnySettingField[] = readonly AnySettingField[],
+> {
   enabled?: boolean;
   configurationRequired?: boolean;
   title?: string;
@@ -95,12 +111,30 @@ export interface InstallOptions<TFields extends readonly AnySettingField[] = rea
   fields?: TFields;
 }
 
-type TextLikeBuilderOptions = Omit<TextSettingField<string>, "key" | "type" | "label"> & { label?: string };
-type PasswordBuilderOptions = Omit<PasswordSettingField<string>, "key" | "type" | "label"> & { label?: string };
-type NumberBuilderOptions = Omit<NumberSettingField<string>, "key" | "type" | "label"> & { label?: string };
-type CheckboxBuilderOptions = Omit<CheckboxSettingField<string>, "key" | "type" | "label"> & { label?: string };
-type SelectBuilderOptions = Omit<SelectSettingField<string>, "key" | "type" | "label"> & { label?: string };
-type MultiSelectBuilderOptions = Omit<MultiSelectSettingField<string>, "key" | "type" | "label"> & {
+type TextLikeBuilderOptions = Omit<
+  TextSettingField<string>,
+  "key" | "type" | "label"
+> & { label?: string };
+type PasswordBuilderOptions = Omit<
+  PasswordSettingField<string>,
+  "key" | "type" | "label"
+> & { label?: string };
+type NumberBuilderOptions = Omit<
+  NumberSettingField<string>,
+  "key" | "type" | "label"
+> & { label?: string };
+type CheckboxBuilderOptions = Omit<
+  CheckboxSettingField<string>,
+  "key" | "type" | "label"
+> & { label?: string };
+type SelectBuilderOptions = Omit<
+  SelectSettingField<string>,
+  "key" | "type" | "label"
+> & { label?: string };
+type MultiSelectBuilderOptions = Omit<
+  MultiSelectSettingField<string>,
+  "key" | "type" | "label"
+> & {
   label?: string;
 };
 
@@ -114,10 +148,20 @@ function labelForKey(key: string): string {
 
 function parseBoolean(input: string, key: string, traceId?: string): boolean {
   const normalized = input.trim().toLowerCase();
-  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+  if (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  ) {
     return true;
   }
-  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+  if (
+    normalized === "0" ||
+    normalized === "false" ||
+    normalized === "no" ||
+    normalized === "off"
+  ) {
     return false;
   }
 
@@ -128,7 +172,11 @@ function parseBoolean(input: string, key: string, traceId?: string): boolean {
   );
 }
 
-function parseNumber(input: string, field: NumberSettingField, traceId?: string): number {
+function parseNumber(
+  input: string,
+  field: NumberSettingField,
+  traceId?: string,
+): number {
   const value = Number.parseFloat(input.trim());
   if (!Number.isFinite(value)) {
     throw ProtocolError.requestInvalid(
@@ -218,7 +266,8 @@ function parseMultiSelectValues(
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
 
-  const values = directValues.length > 0 ? directValues : (field.defaultValue ?? []);
+  const values =
+    directValues.length > 0 ? directValues : (field.defaultValue ?? []);
   if (values.length === 0) {
     return undefined;
   }
@@ -240,7 +289,10 @@ function parseMultiSelectValues(
     }
   }
 
-  if (typeof field.maxSelected === "number" && deduped.length > field.maxSelected) {
+  if (
+    typeof field.maxSelected === "number" &&
+    deduped.length > field.maxSelected
+  ) {
     throw ProtocolError.requestInvalid(
       `setting '${field.key}' supports at most ${field.maxSelected} values`,
       { key: field.key, count: deduped.length },
@@ -251,7 +303,9 @@ function parseMultiSelectValues(
   return deduped;
 }
 
-export function parseInstallSettings<TFields extends readonly AnySettingField[]>(
+export function parseInstallSettings<
+  TFields extends readonly AnySettingField[],
+>(
   fields: TFields | undefined,
   searchParams: URLSearchParams,
   traceId?: string,
@@ -262,7 +316,12 @@ export function parseInstallSettings<TFields extends readonly AnySettingField[]>
   for (const field of normalizedFields) {
     const queryKey = field.queryParam ?? field.key;
     if (field.type === "multi_select") {
-      const value = parseMultiSelectValues(field, searchParams, queryKey, traceId);
+      const value = parseMultiSelectValues(
+        field,
+        searchParams,
+        queryKey,
+        traceId,
+      );
 
       if (!value || value.length === 0) {
         if (field.required) {
@@ -299,7 +358,10 @@ export function parseInstallSettings<TFields extends readonly AnySettingField[]>
   return result as Partial<InferSettings<TFields>>;
 }
 
-export function text<K extends string>(key: K, options: TextLikeBuilderOptions = {}): TextSettingField<K> {
+export function text<K extends string>(
+  key: K,
+  options: TextLikeBuilderOptions = {},
+): TextSettingField<K> {
   return {
     key,
     type: "text",
@@ -308,7 +370,10 @@ export function text<K extends string>(key: K, options: TextLikeBuilderOptions =
   };
 }
 
-export function password<K extends string>(key: K, options: PasswordBuilderOptions = {}): PasswordSettingField<K> {
+export function password<K extends string>(
+  key: K,
+  options: PasswordBuilderOptions = {},
+): PasswordSettingField<K> {
   return {
     key,
     type: "password",
@@ -317,7 +382,10 @@ export function password<K extends string>(key: K, options: PasswordBuilderOptio
   };
 }
 
-export function number<K extends string>(key: K, options: NumberBuilderOptions = {}): NumberSettingField<K> {
+export function number<K extends string>(
+  key: K,
+  options: NumberBuilderOptions = {},
+): NumberSettingField<K> {
   return {
     key,
     type: "number",
@@ -326,7 +394,10 @@ export function number<K extends string>(key: K, options: NumberBuilderOptions =
   };
 }
 
-export function checkbox<K extends string>(key: K, options: CheckboxBuilderOptions = {}): CheckboxSettingField<K> {
+export function checkbox<K extends string>(
+  key: K,
+  options: CheckboxBuilderOptions = {},
+): CheckboxSettingField<K> {
   return {
     key,
     type: "checkbox",
@@ -335,7 +406,10 @@ export function checkbox<K extends string>(key: K, options: CheckboxBuilderOptio
   };
 }
 
-export function select<K extends string>(key: K, options: SelectBuilderOptions): SelectSettingField<K> {
+export function select<K extends string>(
+  key: K,
+  options: SelectBuilderOptions,
+): SelectSettingField<K> {
   return {
     key,
     type: "select",
@@ -344,7 +418,10 @@ export function select<K extends string>(key: K, options: SelectBuilderOptions):
   };
 }
 
-export function multiSelect<K extends string>(key: K, options: MultiSelectBuilderOptions): MultiSelectSettingField<K> {
+export function multiSelect<K extends string>(
+  key: K,
+  options: MultiSelectBuilderOptions,
+): MultiSelectSettingField<K> {
   return {
     key,
     type: "multi_select",
@@ -354,7 +431,10 @@ export function multiSelect<K extends string>(key: K, options: MultiSelectBuilde
   };
 }
 
-export function textarea<K extends string>(key: K, options: TextLikeBuilderOptions = {}): TextareaSettingField<K> {
+export function textarea<K extends string>(
+  key: K,
+  options: TextLikeBuilderOptions = {},
+): TextareaSettingField<K> {
   return {
     key,
     type: "textarea",

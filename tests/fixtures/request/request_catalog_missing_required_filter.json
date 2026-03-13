@@ -1,11 +1,11 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "catalogID": "top",
   "mediaType": "movie",
   "filters": [
     {
       "key": "genre",
-      "value": {"kind": "string", "string": "Drama"}
+      "value": { "kind": "string", "string": "Drama" }
     }
   ],
   "experimental": []

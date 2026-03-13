@@ -1,15 +1,15 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "streams": [
     {
       "transport": {
         "kind": "archive",
         "format": "zip",
         "files": [
-          {"url": "https://cdn.example.com/archive.zip", "bytes": 1024}
+          { "url": "https://cdn.example.com/archive.zip", "bytes": 1024 }
         ]
       },
-      "selection": {"fileMustInclude": "movie.mkv"},
+      "selection": { "fileMustInclude": "movie.mkv" },
       "name": "Archive"
     }
   ]

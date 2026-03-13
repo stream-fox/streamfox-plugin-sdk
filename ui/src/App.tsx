@@ -1,17 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
-type InstallerFieldType = 'text' | 'password' | 'number' | 'checkbox' | 'select' | 'multi_select' | 'textarea';
+type InstallerFieldType =
+  | "text"
+  | "password"
+  | "number"
+  | "checkbox"
+  | "select"
+  | "multi_select"
+  | "textarea";
 type FormValue = string | boolean | string[];
-type ThemePreference = 'system' | 'light' | 'dark';
-type ResolvedTheme = 'light' | 'dark';
+type ThemePreference = "system" | "light" | "dark";
+type ResolvedTheme = "light" | "dark";
 
-const THEME_STORAGE_KEY = 'streamfox.installer.theme';
+const THEME_STORAGE_KEY = "streamfox.installer.theme";
 
 interface InstallerFieldOption {
   label: string;
@@ -72,75 +85,98 @@ interface StudioConfig {
 }
 
 function makeBaseUrl(): URL {
-  const pathname = window.location.pathname.endsWith('/') ? window.location.pathname : `${window.location.pathname}/`;
+  const pathname = window.location.pathname.endsWith("/")
+    ? window.location.pathname
+    : `${window.location.pathname}/`;
   return new URL(pathname, window.location.origin);
 }
 
 function readStoredTheme(): ThemePreference {
-  if (typeof window === 'undefined') {
-    return 'system';
+  if (typeof window === "undefined") {
+    return "system";
   }
 
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+  return stored === "light" || stored === "dark" || stored === "system"
+    ? stored
+    : "system";
 }
 
 function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') {
-    return 'light';
+  if (typeof window === "undefined") {
+    return "light";
   }
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
-function toCheckboxValue(rawValue: string | null, defaultValue: boolean): boolean {
+function toCheckboxValue(
+  rawValue: string | null,
+  defaultValue: boolean,
+): boolean {
   if (rawValue === null) {
     return defaultValue;
   }
 
   const normalized = rawValue.trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
 }
 
-function asString(value: InstallerField['defaultValue']): string {
-  if (typeof value === 'string') {
+function asString(value: InstallerField["defaultValue"]): string {
+  if (typeof value === "string") {
     return value;
   }
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     return String(value);
   }
-  return '';
+  return "";
 }
 
 function normalizeMultiValues(value: FormValue): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
-function buildInitialValues(fields: InstallerField[]): Record<string, FormValue> {
+function buildInitialValues(
+  fields: InstallerField[],
+): Record<string, FormValue> {
   const params = new URLSearchParams(window.location.search);
   const values: Record<string, FormValue> = {};
 
   for (const field of fields) {
     const queryKey = field.queryParam ?? field.key;
     const rawValue = params.get(queryKey);
-    const fieldType = field.type ?? 'text';
+    const fieldType = field.type ?? "text";
 
-    if (fieldType === 'checkbox') {
-      values[field.key] = toCheckboxValue(rawValue, field.defaultValue === true);
+    if (fieldType === "checkbox") {
+      values[field.key] = toCheckboxValue(
+        rawValue,
+        field.defaultValue === true,
+      );
       continue;
     }
 
-    if (fieldType === 'multi_select') {
+    if (fieldType === "multi_select") {
       const selected = params
         .getAll(queryKey)
-        .flatMap((entry) => entry.split(','))
+        .flatMap((entry) => entry.split(","))
         .map((entry) => entry.trim())
         .filter((entry) => entry.length > 0);
 
       if (selected.length > 0) {
         values[field.key] = selected;
       } else if (Array.isArray(field.defaultValue)) {
-        values[field.key] = field.defaultValue.filter((entry): entry is string => typeof entry === 'string');
+        values[field.key] = field.defaultValue.filter(
+          (entry): entry is string => typeof entry === "string",
+        );
       } else {
         values[field.key] = [];
       }
@@ -153,22 +189,25 @@ function buildInitialValues(fields: InstallerField[]): Record<string, FormValue>
   return values;
 }
 
-function buildQuery(fields: InstallerField[], values: Record<string, FormValue>): URLSearchParams {
+function buildQuery(
+  fields: InstallerField[],
+  values: Record<string, FormValue>,
+): URLSearchParams {
   const params = new URLSearchParams();
 
   for (const field of fields) {
     const queryKey = field.queryParam ?? field.key;
-    const fieldType = field.type ?? 'text';
+    const fieldType = field.type ?? "text";
     const value = values[field.key];
 
-    if (fieldType === 'checkbox') {
+    if (fieldType === "checkbox") {
       if (value === true) {
-        params.set(queryKey, '1');
+        params.set(queryKey, "1");
       }
       continue;
     }
 
-    if (fieldType === 'multi_select') {
+    if (fieldType === "multi_select") {
       for (const selected of normalizeMultiValues(value)) {
         const trimmed = selected.trim();
         if (trimmed.length > 0) {
@@ -178,7 +217,7 @@ function buildQuery(fields: InstallerField[], values: Record<string, FormValue>)
       continue;
     }
 
-    const stringValue = typeof value === 'string' ? value.trim() : '';
+    const stringValue = typeof value === "string" ? value.trim() : "";
     if (stringValue.length > 0) {
       params.set(queryKey, stringValue);
     }
@@ -187,29 +226,32 @@ function buildQuery(fields: InstallerField[], values: Record<string, FormValue>)
   return params;
 }
 
-function hasMissingRequiredFields(fields: InstallerField[], values: Record<string, FormValue>): boolean {
+function hasMissingRequiredFields(
+  fields: InstallerField[],
+  values: Record<string, FormValue>,
+): boolean {
   for (const field of fields) {
     if (!field.required) {
       continue;
     }
 
     const value = values[field.key];
-    const fieldType = field.type ?? 'text';
-    if (fieldType === 'checkbox') {
+    const fieldType = field.type ?? "text";
+    if (fieldType === "checkbox") {
       if (value !== true) {
         return true;
       }
       continue;
     }
 
-    if (fieldType === 'multi_select') {
+    if (fieldType === "multi_select") {
       if (normalizeMultiValues(value).length === 0) {
         return true;
       }
       continue;
     }
 
-    if (typeof value !== 'string' || value.trim().length === 0) {
+    if (typeof value !== "string" || value.trim().length === 0) {
       return true;
     }
   }
@@ -226,7 +268,7 @@ function MultiSelectDropdown({
   value: FormValue;
   onChange: (next: FormValue) => void;
 }): JSX.Element {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const selected = useMemo(() => normalizeMultiValues(value), [value]);
   const options = field.options ?? [];
   const queryText = query.trim().toLowerCase();
@@ -238,7 +280,10 @@ function MultiSelectDropdown({
           return true;
         }
 
-        return option.label.toLowerCase().includes(queryText) || option.value.toLowerCase().includes(queryText);
+        return (
+          option.label.toLowerCase().includes(queryText) ||
+          option.value.toLowerCase().includes(queryText)
+        );
       }),
     [options, queryText],
   );
@@ -248,7 +293,10 @@ function MultiSelectDropdown({
     if (current.has(nextValue)) {
       current.delete(nextValue);
     } else {
-      if (typeof field.maxSelected === 'number' && selected.length >= field.maxSelected) {
+      if (
+        typeof field.maxSelected === "number" &&
+        selected.length >= field.maxSelected
+      ) {
         return;
       }
       current.add(nextValue);
@@ -258,24 +306,39 @@ function MultiSelectDropdown({
   };
 
   const preview =
-    selected.length === 0 ? 'Select options' : selected.length <= 3 ? selected.join(', ') : `${selected.length} selected`;
+    selected.length === 0
+      ? "Select options"
+      : selected.length <= 3
+        ? selected.join(", ")
+        : `${selected.length} selected`;
 
   return (
     <details className="rounded-xl border bg-card p-3">
-      <summary className="cursor-pointer list-none text-sm font-medium text-foreground">{preview}</summary>
+      <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
+        {preview}
+      </summary>
       <div className="mt-3 space-y-3">
         {field.searchable !== false ? (
-          <Input value={query} placeholder="Search options..." onChange={(event) => setQuery(event.target.value)} />
+          <Input
+            value={query}
+            placeholder="Search options..."
+            onChange={(event) => setQuery(event.target.value)}
+          />
         ) : null}
 
         <div className="max-h-52 space-y-1 overflow-auto rounded-xl border border-border/80 bg-muted/35 p-2">
           {filtered.length === 0 ? (
-            <p className="px-2 py-3 text-xs text-muted-foreground">No options match your search.</p>
+            <p className="px-2 py-3 text-xs text-muted-foreground">
+              No options match your search.
+            </p>
           ) : (
             filtered.map((option) => {
               const checked = selected.includes(option.value);
               return (
-                <label key={option.value} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                <label
+                  key={option.value}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                >
                   <input
                     type="checkbox"
                     checked={checked}
@@ -290,7 +353,12 @@ function MultiSelectDropdown({
         </div>
 
         {selected.length > 0 ? (
-          <Button type="button" variant="secondary" size="sm" onClick={() => onChange([])}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => onChange([])}
+          >
             Clear selection
           </Button>
         ) : null}
@@ -299,10 +367,14 @@ function MultiSelectDropdown({
   );
 }
 
-function renderField(field: InstallerField, value: FormValue, onChange: (next: FormValue) => void): JSX.Element {
-  const fieldType = field.type ?? 'text';
+function renderField(
+  field: InstallerField,
+  value: FormValue,
+  onChange: (next: FormValue) => void,
+): JSX.Element {
+  const fieldType = field.type ?? "text";
 
-  if (fieldType === 'checkbox') {
+  if (fieldType === "checkbox") {
     return (
       <label className="flex items-center gap-3 rounded-xl border bg-muted/50 px-4 py-3">
         <input
@@ -316,20 +388,23 @@ function renderField(field: InstallerField, value: FormValue, onChange: (next: F
     );
   }
 
-  if (fieldType === 'textarea') {
+  if (fieldType === "textarea") {
     return (
       <Textarea
         className="min-h-[108px]"
-        value={typeof value === 'string' ? value : ''}
+        value={typeof value === "string" ? value : ""}
         placeholder={field.placeholder}
         onChange={(event) => onChange(event.target.value)}
       />
     );
   }
 
-  if (fieldType === 'select') {
+  if (fieldType === "select") {
     return (
-      <Select value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value)}>
+      <Select
+        value={typeof value === "string" ? value : ""}
+        onChange={(event) => onChange(event.target.value)}
+      >
         <option value="">Select option</option>
         {(field.options ?? []).map((option) => (
           <option key={option.value} value={option.value}>
@@ -340,14 +415,22 @@ function renderField(field: InstallerField, value: FormValue, onChange: (next: F
     );
   }
 
-  if (fieldType === 'multi_select') {
-    return <MultiSelectDropdown field={field} value={value} onChange={onChange} />;
+  if (fieldType === "multi_select") {
+    return (
+      <MultiSelectDropdown field={field} value={value} onChange={onChange} />
+    );
   }
 
   return (
     <Input
-      type={fieldType === 'number' ? 'number' : fieldType === 'password' ? 'password' : 'text'}
-      value={typeof value === 'string' ? value : ''}
+      type={
+        fieldType === "number"
+          ? "number"
+          : fieldType === "password"
+            ? "password"
+            : "text"
+      }
+      value={typeof value === "string" ? value : ""}
       placeholder={field.placeholder}
       min={field.min}
       max={field.max}
@@ -362,34 +445,38 @@ export function App(): JSX.Element {
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [values, setValues] = useState<Record<string, FormValue>>({});
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [themePreference, setThemePreference] = useState<ThemePreference>(readStoredTheme);
+  const [themePreference, setThemePreference] =
+    useState<ThemePreference>(readStoredTheme);
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
 
   const baseUrl = useMemo(makeBaseUrl, []);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
     const sync = (event?: MediaQueryListEvent): void => {
-      setSystemTheme(event?.matches ?? media.matches ? 'dark' : 'light');
+      setSystemTheme((event?.matches ?? media.matches) ? "dark" : "light");
     };
 
     sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(THEME_STORAGE_KEY, themePreference);
-    const resolved = themePreference === 'system' ? systemTheme : themePreference;
-    document.documentElement.classList.toggle('dark', resolved === 'dark');
+    const resolved =
+      themePreference === "system" ? systemTheme : themePreference;
+    document.documentElement.classList.toggle("dark", resolved === "dark");
   }, [systemTheme, themePreference]);
 
   useEffect(() => {
     void (async () => {
       try {
-        const configResponse = await fetch(new URL('studio-config', baseUrl));
+        const configResponse = await fetch(new URL("studio-config", baseUrl));
         if (!configResponse.ok) {
-          throw new Error(`Failed to load installer config (${configResponse.status})`);
+          throw new Error(
+            `Failed to load installer config (${configResponse.status})`,
+          );
         }
 
         const loadedConfig = (await configResponse.json()) as StudioConfig;
@@ -397,7 +484,9 @@ export function App(): JSX.Element {
 
         const manifestResponse = await fetch(loadedConfig.manifestPath);
         if (!manifestResponse.ok) {
-          throw new Error(`Failed to load manifest (${manifestResponse.status})`);
+          throw new Error(
+            `Failed to load manifest (${manifestResponse.status})`,
+          );
         }
 
         const loadedManifest = (await manifestResponse.json()) as Manifest;
@@ -405,22 +494,32 @@ export function App(): JSX.Element {
 
         setValues(buildInitialValues(loadedConfig.installer?.fields ?? []));
       } catch (error) {
-        setErrorText(error instanceof Error ? error.message : 'Failed to load installer config');
+        setErrorText(
+          error instanceof Error
+            ? error.message
+            : "Failed to load installer config",
+        );
       }
     })();
   }, [baseUrl]);
 
   const fields = config?.installer?.fields ?? [];
-  const installerTitle = config?.installer.title ?? manifest?.plugin.name ?? 'Plugin Installer';
+  const installerTitle =
+    config?.installer.title ?? manifest?.plugin.name ?? "Plugin Installer";
   const installerDescription =
-    config?.installer.description ?? manifest?.plugin.description ?? 'Configure this plugin before installation.';
-  const installerSubtitle = config?.installer.subtitle ?? '';
-  const pluginVersion = manifest?.plugin.version ?? config?.installer.subtitle ?? '1.0.0';
+    config?.installer.description ??
+    manifest?.plugin.description ??
+    "Configure this plugin before installation.";
+  const installerSubtitle = config?.installer.subtitle ?? "";
+  const pluginVersion =
+    manifest?.plugin.version ?? config?.installer.subtitle ?? "1.0.0";
   const brandingLogo = config?.installer.logo ?? manifest?.plugin.logo ?? null;
-  const pluginSummaryText = manifest?.plugin.description ?? installerDescription;
+  const pluginSummaryText =
+    manifest?.plugin.description ?? installerDescription;
 
   const configuredManifestUrl = useMemo(() => {
-    const manifestPath = config?.deeplink.manifestPath ?? config?.manifestPath ?? '/manifest';
+    const manifestPath =
+      config?.deeplink.manifestPath ?? config?.manifestPath ?? "/manifest";
     const target = new URL(manifestPath, window.location.origin);
     const query = buildQuery(fields, values);
 
@@ -432,20 +531,31 @@ export function App(): JSX.Element {
   }, [config, fields, values]);
 
   const installHref = useMemo(() => {
-    if (config?.deeplink.enabled === false || config?.installer?.enabled === false) {
+    if (
+      config?.deeplink.enabled === false ||
+      config?.installer?.enabled === false
+    ) {
       return null;
     }
 
-    const scheme = config?.deeplink.scheme ?? 'streamfox';
+    const scheme = config?.deeplink.scheme ?? "streamfox";
     return `${scheme}://${window.location.host}${configuredManifestUrl.pathname}${configuredManifestUrl.search}`;
   }, [config, configuredManifestUrl]);
 
   const capabilityKinds = useMemo(
-    () => (manifest?.capabilities ?? []).map((capability) => capability.kind.replace('_', ' ')),
+    () =>
+      (manifest?.capabilities ?? []).map((capability) =>
+        capability.kind.replace("_", " "),
+      ),
     [manifest],
   );
-  const requiredFieldsMissing = useMemo(() => hasMissingRequiredFields(fields, values), [fields, values]);
-  const installBlockedByConfig = (config?.installer?.configurationRequired ?? false) && requiredFieldsMissing;
+  const requiredFieldsMissing = useMemo(
+    () => hasMissingRequiredFields(fields, values),
+    [fields, values],
+  );
+  const installBlockedByConfig =
+    (config?.installer?.configurationRequired ?? false) &&
+    requiredFieldsMissing;
 
   const onFieldChange = (key: string, nextValue: FormValue): void => {
     setValues((previous) => ({
@@ -459,146 +569,206 @@ export function App(): JSX.Element {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">StreamFox Installer</p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{installerTitle}</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{installerDescription}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              StreamFox Installer
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              {installerTitle}
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              {installerDescription}
+            </p>
           </div>
 
           <div className="inline-flex rounded-full border bg-muted/40 p-1">
-              {(['system', 'light', 'dark'] as const).map((option) => {
-                const selected = themePreference === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setThemePreference(option)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                      selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
+            {(["system", "light", "dark"] as const).map((option) => {
+              const selected = themePreference === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setThemePreference(option)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    selected
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div>
           <Card className="overflow-hidden shadow-sm">
             <CardHeader className="space-y-5 border-b pb-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background">
-                      {brandingLogo ? (
-                        <img src={brandingLogo} alt={`${manifest?.plugin.name ?? installerTitle} logo`} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-2xl font-semibold text-primary">SF</span>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-2xl">{manifest?.plugin.name ?? installerTitle}</CardTitle>
-                        <Badge>v{pluginVersion}</Badge>
-                      </div>
-
-                      {installerSubtitle && installerSubtitle !== pluginVersion ? (
-                        <p className="text-sm font-medium text-muted-foreground">{installerSubtitle}</p>
-                      ) : null}
-
-                      <CardDescription className="max-w-[26rem] truncate text-sm" title={pluginSummaryText}>
-                        {pluginSummaryText}
-                      </CardDescription>
-                    </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background">
+                    {brandingLogo ? (
+                      <img
+                        src={brandingLogo}
+                        alt={`${manifest?.plugin.name ?? installerTitle} logo`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-2xl font-semibold text-primary">
+                        SF
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {installHref ? (
-                      installBlockedByConfig ? (
-                        <Button variant="default" size="sm" disabled>
-                          {config?.installer.installButtonText ?? 'Install Plugin'}
-                        </Button>
-                      ) : (
-                        <a href={installHref}>
-                          <Button variant="default" size="sm">{config?.installer.installButtonText ?? 'Install Plugin'}</Button>
-                        </a>
-                      )
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="text-2xl">
+                        {manifest?.plugin.name ?? installerTitle}
+                      </CardTitle>
+                      <Badge>v{pluginVersion}</Badge>
+                    </div>
+
+                    {installerSubtitle &&
+                    installerSubtitle !== pluginVersion ? (
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {installerSubtitle}
+                      </p>
                     ) : null}
-                    <a href={configuredManifestUrl.toString()} target="_blank" rel="noreferrer">
-                      <Button variant="secondary" size="sm">{config?.installer.openManifestButtonText ?? 'Open Manifest'}</Button>
-                    </a>
+
+                    <CardDescription
+                      className="max-w-[26rem] truncate text-sm"
+                      title={pluginSummaryText}
+                    >
+                      {pluginSummaryText}
+                    </CardDescription>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {capabilityKinds.map((kind) => (
-                    <Badge key={kind}>{kind}</Badge>
-                  ))}
+                  {installHref ? (
+                    installBlockedByConfig ? (
+                      <Button variant="default" size="sm" disabled>
+                        {config?.installer.installButtonText ??
+                          "Install Plugin"}
+                      </Button>
+                    ) : (
+                      <a href={installHref}>
+                        <Button variant="default" size="sm">
+                          {config?.installer.installButtonText ??
+                            "Install Plugin"}
+                        </Button>
+                      </a>
+                    )
+                  ) : null}
+                  <a
+                    href={configuredManifestUrl.toString()}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Button variant="secondary" size="sm">
+                      {config?.installer.openManifestButtonText ??
+                        "Open Manifest"}
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {capabilityKinds.map((kind) => (
+                  <Badge key={kind}>{kind}</Badge>
+                ))}
+              </div>
+
+              {errorText ? (
+                <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+                  {errorText}
+                </div>
+              ) : null}
+            </CardHeader>
+
+            <CardContent className="space-y-5 pt-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Configuration</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {fields.length === 0
+                      ? "This plugin installs without extra configuration."
+                      : "Adjust the settings that should be encoded into the manifest URL."}
+                  </p>
+                </div>
+                <Badge>
+                  {fields.length} field{fields.length === 1 ? "" : "s"}
+                </Badge>
+              </div>
+
+              {fields.length === 0 ? (
+                <div className="rounded-xl border bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+                  No configuration fields are required for this plugin.
+                </div>
+              ) : (
+                fields.map((field) => (
+                  <div key={field.key} className="space-y-2.5">
+                    {field.type !== "checkbox" ? (
+                      <label className="text-sm font-medium">
+                        {field.label}
+                        {field.required ? (
+                          <span className="text-primary"> *</span>
+                        ) : null}
+                      </label>
+                    ) : null}
+
+                    {renderField(field, values[field.key] ?? "", (nextValue) =>
+                      onFieldChange(field.key, nextValue),
+                    )}
+
+                    {field.description ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {field.description}
+                      </p>
+                    ) : null}
+                  </div>
+                ))
+              )}
+              {installBlockedByConfig ? (
+                <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100">
+                  Complete all required fields to enable installation.
+                </div>
+              ) : null}
+
+              <div className="space-y-4 border-t pt-6">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold">Install details</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use these links to install and debug the plugin integration
+                    flow.
+                  </p>
                 </div>
 
-                {errorText ? (
-                  <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
-                    {errorText}
-                  </div>
-                ) : null}
-              </CardHeader>
-
-              <CardContent className="space-y-5 pt-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">Configuration</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {fields.length === 0 ? 'This plugin installs without extra configuration.' : 'Adjust the settings that should be encoded into the manifest URL.'}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      Manifest URL
                     </p>
-                  </div>
-                  <Badge>{fields.length} field{fields.length === 1 ? '' : 's'}</Badge>
-                </div>
-
-                {fields.length === 0 ? (
-                  <div className="rounded-xl border bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
-                    No configuration fields are required for this plugin.
-                  </div>
-                ) : (
-                  fields.map((field) => (
-                    <div key={field.key} className="space-y-2.5">
-                      {field.type !== 'checkbox' ? (
-                        <label className="text-sm font-medium">
-                          {field.label}
-                          {field.required ? <span className="text-primary"> *</span> : null}
-                        </label>
-                      ) : null}
-
-                      {renderField(field, values[field.key] ?? '', (nextValue) => onFieldChange(field.key, nextValue))}
-
-                      {field.description ? <p className="text-xs leading-5 text-muted-foreground">{field.description}</p> : null}
-                    </div>
-                  ))
-                )}
-                {installBlockedByConfig ? (
-                  <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100">
-                    Complete all required fields to enable installation.
-                  </div>
-                ) : null}
-
-                <div className="space-y-4 border-t pt-6">
-                  <div className="space-y-1">
-                    <h2 className="text-lg font-semibold">Install details</h2>
-                    <p className="text-sm text-muted-foreground">Use these links to install and debug the plugin integration flow.</p>
+                    <Textarea
+                      readOnly
+                      className="min-h-[104px] font-mono text-xs"
+                      value={configuredManifestUrl.toString()}
+                    />
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Manifest URL</p>
-                      <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={configuredManifestUrl.toString()} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Deep Link</p>
-                      <Textarea readOnly className="min-h-[104px] font-mono text-xs" value={installHref ?? 'Deeplink is disabled'} />
-                    </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      Deep Link
+                    </p>
+                    <Textarea
+                      readOnly
+                      className="min-h-[104px] font-mono text-xs"
+                      value={installHref ?? "Deeplink is disabled"}
+                    />
                   </div>
                 </div>
-              </CardContent>
+              </div>
+            </CardContent>
           </Card>
         </div>
       </div>

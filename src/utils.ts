@@ -39,26 +39,39 @@ export function getCapability<K extends ResourceKind>(
   manifest: Manifest,
   kind: K,
 ): Extract<Capability, { kind: K }> | undefined {
-  return manifest.capabilities.find((capability): capability is Extract<Capability, { kind: K }> => capability.kind === kind);
+  return manifest.capabilities.find(
+    (capability): capability is Extract<Capability, { kind: K }> =>
+      capability.kind === kind,
+  );
 }
 
-export function getCatalogCapability(manifest: Manifest): CatalogCapability | undefined {
+export function getCatalogCapability(
+  manifest: Manifest,
+): CatalogCapability | undefined {
   return getCapability(manifest, "catalog");
 }
 
-export function getMetaCapability(manifest: Manifest): MetaCapability | undefined {
+export function getMetaCapability(
+  manifest: Manifest,
+): MetaCapability | undefined {
   return getCapability(manifest, "meta");
 }
 
-export function getStreamCapability(manifest: Manifest): StreamCapability | undefined {
+export function getStreamCapability(
+  manifest: Manifest,
+): StreamCapability | undefined {
   return getCapability(manifest, "stream");
 }
 
-export function getSubtitlesCapability(manifest: Manifest): SubtitlesCapability | undefined {
+export function getSubtitlesCapability(
+  manifest: Manifest,
+): SubtitlesCapability | undefined {
   return getCapability(manifest, "subtitles");
 }
 
-export function getPluginCatalogCapability(manifest: Manifest): PluginCatalogCapability | undefined {
+export function getPluginCatalogCapability(
+  manifest: Manifest,
+): PluginCatalogCapability | undefined {
   return getCapability(manifest, "plugin_catalog");
 }
 

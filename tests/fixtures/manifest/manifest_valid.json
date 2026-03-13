@@ -1,5 +1,5 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "plugin": {
     "id": "com.example.remote",
     "name": "Example Remote",
@@ -15,12 +15,10 @@
           "name": "Top",
           "mediaTypes": ["movie"],
           "filters": [
-            {"key": "genre", "valueType": "string"},
-            {"key": "year", "valueType": "intRange", "isRequired": true}
+            { "key": "genre", "valueType": "string" },
+            { "key": "year", "valueType": "intRange", "isRequired": true }
           ],
-          "sorts": [
-            {"key": "year", "directions": ["descending"]}
-          ]
+          "sorts": [{ "key": "year", "directions": ["descending"] }]
         }
       ]
     },

@@ -1,8 +1,8 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "items": [
     {
-      "id": {"namespace": "imdb", "value": "tt125"},
+      "id": { "namespace": "imdb", "value": "tt125" },
       "mediaType": "movie",
       "title": "Big Buck Bunny",
       "year": 2008,

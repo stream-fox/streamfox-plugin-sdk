@@ -1,8 +1,12 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "streams": [
     {
-      "transport": {"kind": "http", "url": "https://example.com/open", "mode": "external"},
+      "transport": {
+        "kind": "http",
+        "url": "https://example.com/open",
+        "mode": "external"
+      },
       "name": "External"
     }
   ]

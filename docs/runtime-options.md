@@ -4,15 +4,15 @@
 
 `CreateServerOptions`:
 
-| Field | Type | Default | Notes |
-| --- | --- | --- | --- |
-| `basePath` | `string` | `""` | Prefix for all routes. |
-| `enableCors` | `boolean` | `true` | Enables CORS middleware. |
-| `maxPayloadBytes` | `number` | SDK default | Limit for JSON query payload parsing. |
-| `maxDepth` | `number` | SDK default | Max JSON nesting depth. |
-| `frontend` | `boolean \| { enabled?, mountPath?, assetsMountPath?, distPath? }` | enabled | Installer/static UI behavior. |
-| `deeplink` | `{ enabled?, scheme?, manifestPath? }` | enabled | Controls studio-config deeplink metadata. |
-| `installer` | `boolean \| InstallOptions` | enabled | Built-in installer settings. |
+| Field             | Type                                                               | Default     | Notes                                     |
+| ----------------- | ------------------------------------------------------------------ | ----------- | ----------------------------------------- |
+| `basePath`        | `string`                                                           | `""`        | Prefix for all routes.                    |
+| `enableCors`      | `boolean`                                                          | `true`      | Enables CORS middleware.                  |
+| `maxPayloadBytes` | `number`                                                           | SDK default | Limit for JSON query payload parsing.     |
+| `maxDepth`        | `number`                                                           | SDK default | Max JSON nesting depth.                   |
+| `frontend`        | `boolean \| { enabled?, mountPath?, assetsMountPath?, distPath? }` | enabled     | Installer/static UI behavior.             |
+| `deeplink`        | `{ enabled?, scheme?, manifestPath? }`                             | enabled     | Controls studio-config deeplink metadata. |
+| `installer`       | `boolean \| InstallOptions`                                        | enabled     | Built-in installer settings.              |
 
 `FrontendOptions`:
 
@@ -27,13 +27,13 @@
 
 `ServeOptions` extends `CreateServerOptions` with:
 
-| Field | Type | Default |
-| --- | --- | --- |
-| `port` | `number` | `7000` |
-| `hostname` | `string` | `127.0.0.1` |
-| `protocol` | `"http" \| "https"` | auto (`http`, unless TLS provided) |
-| `tls` | `TlsOptions` | none |
-| `integration` | `IntegrationOptions` | defaults below |
+| Field         | Type                 | Default                            |
+| ------------- | -------------------- | ---------------------------------- |
+| `port`        | `number`             | `7000`                             |
+| `hostname`    | `string`             | `127.0.0.1`                        |
+| `protocol`    | `"http" \| "https"`  | auto (`http`, unless TLS provided) |
+| `tls`         | `TlsOptions`         | none                               |
+| `integration` | `IntegrationOptions` | defaults below                     |
 
 `TlsOptions`:
 
@@ -43,12 +43,12 @@
 
 `IntegrationOptions`:
 
-| Field | Type | Default |
-| --- | --- | --- |
-| `installScheme` | `string` | `streamfox` |
-| `launchBaseURL` | `string` | `https://streamfox.app/#` |
-| `autoOpen` | `"none" \| "install" \| "launch"` | `none` |
-| `openURL` | `(url: string) => void \| Promise<void>` | system opener |
+| Field           | Type                                     | Default                   |
+| --------------- | ---------------------------------------- | ------------------------- |
+| `installScheme` | `string`                                 | `streamfox`               |
+| `launchBaseURL` | `string`                                 | `https://streamfox.app/#` |
+| `autoOpen`      | `"none" \| "install" \| "launch"`        | `none`                    |
+| `openURL`       | `(url: string) => void \| Promise<void>` | system opener             |
 
 ## `ServeResult`
 

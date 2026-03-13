@@ -37,7 +37,7 @@ describe("definePlugin", () => {
 
   it("parses settings from query and passes typed values to handlers", async () => {
     let captured:
-        | {
+      | {
           maxLinks?: number;
           includeHI?: boolean;
           mode?: string;
@@ -86,7 +86,9 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles/movie/tt125?maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en");
+    const response = await app.request(
+      "/subtitles/movie/tt125?maxLinks=5&includeHI=0&mode=fast&languages=el&languages=en",
+    );
 
     expect(response.status).toBe(200);
     expect(captured).toEqual({
@@ -158,7 +160,9 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/subtitles/movie/tt125?languages=el&languages=de");
+    const response = await app.request(
+      "/subtitles/movie/tt125?languages=el&languages=de",
+    );
 
     expect(response.status).toBe(400);
 
@@ -185,7 +189,9 @@ describe("definePlugin", () => {
 
     const app = createServer(plugin, { frontend: false });
     const malformed = encodeURIComponent(JSON.stringify({ major: 1 }));
-    const response = await app.request(`/meta/movie/tt125?schemaVersion=${malformed}`);
+    const response = await app.request(
+      `/meta/movie/tt125?schemaVersion=${malformed}`,
+    );
 
     expect(response.status).toBe(400);
 
@@ -215,7 +221,9 @@ describe("definePlugin", () => {
 
     expect((await app.request("/manifest.json")).status).toBe(404);
     expect((await app.request("/studio-config.json")).status).toBe(404);
-    expect((await app.request("/meta?mediaType=movie&itemID=tt123")).status).toBe(404);
+    expect(
+      (await app.request("/meta?mediaType=movie&itemID=tt123")).status,
+    ).toBe(404);
     expect((await app.request("/catalog")).status).toBe(404);
     expect((await app.request("/stream")).status).toBe(404);
     expect((await app.request("/subtitles")).status).toBe(404);
@@ -248,7 +256,9 @@ describe("definePlugin", () => {
           handler: async () => ({ subtitles: [] }),
         },
         pluginCatalog: {
-          endpoints: [{ id: "featured", name: "Featured", pluginKinds: ["catalog"] }],
+          endpoints: [
+            { id: "featured", name: "Featured", pluginKinds: ["catalog"] },
+          ],
           handler: async () => ({ plugins: [] }),
         },
       },
@@ -262,7 +272,9 @@ describe("definePlugin", () => {
     expect((await app.request("/meta/movie/tt123")).status).toBe(200);
     expect((await app.request("/stream/movie/tt123")).status).toBe(200);
     expect((await app.request("/subtitles/movie/tt123")).status).toBe(200);
-    expect((await app.request("/plugin_catalog/featured/catalog")).status).toBe(200);
+    expect((await app.request("/plugin_catalog/featured/catalog")).status).toBe(
+      200,
+    );
 
     expect((await app.request("/catalog/movie")).status).toBe(404);
     expect((await app.request("/meta/movie")).status).toBe(404);
@@ -287,12 +299,17 @@ describe("definePlugin", () => {
       },
     });
 
-    const appWithFallbackLogo = createServer(pluginWithFallbackLogo, { frontend: false });
-    const fallbackResponse = await appWithFallbackLogo.request("/studio-config");
+    const appWithFallbackLogo = createServer(pluginWithFallbackLogo, {
+      frontend: false,
+    });
+    const fallbackResponse =
+      await appWithFallbackLogo.request("/studio-config");
     const fallbackBody = await fallbackResponse.json();
 
     expect(fallbackResponse.status).toBe(200);
-    expect(fallbackBody.installer.logo).toBe("https://cdn.example.com/plugin-logo.png");
+    expect(fallbackBody.installer.logo).toBe(
+      "https://cdn.example.com/plugin-logo.png",
+    );
 
     const pluginWithOverrideLogo = definePlugin({
       plugin: {
@@ -312,12 +329,17 @@ describe("definePlugin", () => {
       },
     });
 
-    const appWithOverrideLogo = createServer(pluginWithOverrideLogo, { frontend: false });
-    const overrideResponse = await appWithOverrideLogo.request("/studio-config");
+    const appWithOverrideLogo = createServer(pluginWithOverrideLogo, {
+      frontend: false,
+    });
+    const overrideResponse =
+      await appWithOverrideLogo.request("/studio-config");
     const overrideBody = await overrideResponse.json();
 
     expect(overrideResponse.status).toBe(200);
-    expect(overrideBody.installer.logo).toBe("https://cdn.example.com/installer-logo.png");
+    expect(overrideBody.installer.logo).toBe(
+      "https://cdn.example.com/installer-logo.png",
+    );
   });
 
   it("defaults deeplink scheme to streamfox", async () => {
@@ -372,7 +394,9 @@ describe("definePlugin", () => {
     });
 
     const app = createServer(plugin, { frontend: false });
-    const response = await app.request("/meta/movie/tt123?mediaType=series&itemID=override");
+    const response = await app.request(
+      "/meta/movie/tt123?mediaType=series&itemID=override",
+    );
 
     expect(response.status).toBe(200);
     expect(captured).toEqual({
@@ -405,7 +429,9 @@ describe("definePlugin", () => {
     const response = await app.request("/stream/movie/tt123");
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.com/stream-redirect");
+    expect(response.headers.get("location")).toBe(
+      "https://example.com/stream-redirect",
+    );
   });
 
   it("exposes configurationRequired in studio config", async () => {
@@ -454,8 +480,14 @@ describe("definePlugin", () => {
 
     try {
       await mkdir(path.join(distDir, "assets"), { recursive: true });
-      await writeFile(path.join(distDir, "index.html"), "<html><body>custom frontend</body></html>");
-      await writeFile(path.join(distDir, "assets", "app.js"), "console.log('custom frontend');");
+      await writeFile(
+        path.join(distDir, "index.html"),
+        "<html><body>custom frontend</body></html>",
+      );
+      await writeFile(
+        path.join(distDir, "assets", "app.js"),
+        "console.log('custom frontend');",
+      );
 
       const app = createServer(plugin, {
         frontend: {
@@ -495,8 +527,14 @@ describe("definePlugin", () => {
 
     try {
       await mkdir(path.join(distDir, "assets"), { recursive: true });
-      await writeFile(path.join(distDir, "index.html"), "<html><body>custom assets path</body></html>");
-      await writeFile(path.join(distDir, "assets", "app.css"), "body { color: black; }");
+      await writeFile(
+        path.join(distDir, "index.html"),
+        "<html><body>custom assets path</body></html>",
+      );
+      await writeFile(
+        path.join(distDir, "assets", "app.css"),
+        "body { color: black; }",
+      );
 
       const app = createServer(plugin, {
         frontend: {

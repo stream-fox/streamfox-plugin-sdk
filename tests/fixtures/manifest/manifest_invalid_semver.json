@@ -1,7 +1,5 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
-  "plugin": {"id": "com.example.remote", "name": "Example", "version": "v1"},
-  "capabilities": [
-    {"kind": "meta", "mediaTypes": ["movie"]}
-  ]
+  "schemaVersion": { "major": 1, "minor": 0 },
+  "plugin": { "id": "com.example.remote", "name": "Example", "version": "v1" },
+  "capabilities": [{ "kind": "meta", "mediaTypes": ["movie"] }]
 }

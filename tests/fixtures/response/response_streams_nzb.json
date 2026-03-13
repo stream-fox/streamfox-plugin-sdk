@@ -1,9 +1,13 @@
 {
-  "schemaVersion": {"major": 1, "minor": 0},
+  "schemaVersion": { "major": 1, "minor": 0 },
   "streams": [
     {
-      "transport": {"kind": "usenet", "nzbURL": "https://example.com/file.nzb", "servers": ["nntps://user:pass@news.example.com:563/4"]},
-      "selection": {"fileIndex": 1},
+      "transport": {
+        "kind": "usenet",
+        "nzbURL": "https://example.com/file.nzb",
+        "servers": ["nntps://user:pass@news.example.com:563/4"]
+      },
+      "selection": { "fileIndex": 1 },
       "name": "Usenet"
     }
   ]

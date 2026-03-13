@@ -30,7 +30,14 @@ export class ProtocolError extends Error {
     this.traceId = payload.traceId;
   }
 
-  toJSON(): { error: { code: ProtocolErrorCode; message: string; details?: unknown; traceId?: string } } {
+  toJSON(): {
+    error: {
+      code: ProtocolErrorCode;
+      message: string;
+      details?: unknown;
+      traceId?: string;
+    };
+  } {
     return {
       error: {
         code: this.code,
@@ -42,15 +49,32 @@ export class ProtocolError extends Error {
   }
 
   static manifestInvalid(message: string, details?: unknown): ProtocolError {
-    return new ProtocolError({ code: "MANIFEST_INVALID", message, details, traceId: undefined }, 400);
+    return new ProtocolError(
+      { code: "MANIFEST_INVALID", message, details, traceId: undefined },
+      400,
+    );
   }
 
-  static requestInvalid(message: string, details?: unknown, traceId?: string): ProtocolError {
-    return new ProtocolError({ code: "REQUEST_INVALID", message, details, traceId }, 400);
+  static requestInvalid(
+    message: string,
+    details?: unknown,
+    traceId?: string,
+  ): ProtocolError {
+    return new ProtocolError(
+      { code: "REQUEST_INVALID", message, details, traceId },
+      400,
+    );
   }
 
-  static responseInvalid(message: string, details?: unknown, traceId?: string): ProtocolError {
-    return new ProtocolError({ code: "RESPONSE_INVALID", message, details, traceId }, 500);
+  static responseInvalid(
+    message: string,
+    details?: unknown,
+    traceId?: string,
+  ): ProtocolError {
+    return new ProtocolError(
+      { code: "RESPONSE_INVALID", message, details, traceId },
+      500,
+    );
   }
 
   static noHandler(resource: string, traceId?: string): ProtocolError {
@@ -66,7 +90,10 @@ export class ProtocolError extends Error {
   }
 
   static invalidJson(message: string, traceId?: string): ProtocolError {
-    return new ProtocolError({ code: "INVALID_JSON", message, details: undefined, traceId }, 400);
+    return new ProtocolError(
+      { code: "INVALID_JSON", message, details: undefined, traceId },
+      400,
+    );
   }
 
   static payloadTooLarge(maxBytes: number, traceId?: string): ProtocolError {
@@ -93,12 +120,22 @@ export class ProtocolError extends Error {
     );
   }
 
-  static internal(message: string, details?: unknown, traceId?: string): ProtocolError {
-    return new ProtocolError({ code: "INTERNAL_ERROR", message, details, traceId }, 500);
+  static internal(
+    message: string,
+    details?: unknown,
+    traceId?: string,
+  ): ProtocolError {
+    return new ProtocolError(
+      { code: "INTERNAL_ERROR", message, details, traceId },
+      500,
+    );
   }
 }
 
-export function normalizeError(error: unknown, fallbackTraceId?: string): ProtocolError {
+export function normalizeError(
+  error: unknown,
+  fallbackTraceId?: string,
+): ProtocolError {
   if (error instanceof ProtocolError) {
     return error;
   }

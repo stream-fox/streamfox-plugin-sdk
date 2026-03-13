@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
-import { createServer as createHttpsServer, type ServerOptions as HttpsServerOptions } from "node:https";
+import {
+  createServer as createHttpsServer,
+  type ServerOptions as HttpsServerOptions,
+} from "node:https";
 import { serve as nodeServe } from "@hono/node-server";
 import { ProtocolError } from "./errors";
 import type { MediaPlugin } from "./plugin";
@@ -42,7 +45,10 @@ export interface ServeResult {
   close: () => Promise<void>;
 }
 
-function resolveTlsBuffer(value: string | Buffer | undefined, pathValue: string | undefined): string | Buffer | undefined {
+function resolveTlsBuffer(
+  value: string | Buffer | undefined,
+  pathValue: string | undefined,
+): string | Buffer | undefined {
   if (value !== undefined) {
     return value;
   }
@@ -69,7 +75,9 @@ function resolveHttpsOptions(options: TlsOptions): HttpsServerOptions {
     key,
     cert,
     ...(ca !== undefined ? { ca } : {}),
-    ...(options.passphrase !== undefined ? { passphrase: options.passphrase } : {}),
+    ...(options.passphrase !== undefined
+      ? { passphrase: options.passphrase }
+      : {}),
   };
 }
 
@@ -78,8 +86,12 @@ function normalizeBasePath(pathValue: string | undefined): string {
     return "";
   }
 
-  const withLeadingSlash = pathValue.startsWith("/") ? pathValue : `/${pathValue}`;
-  return withLeadingSlash.endsWith("/") ? withLeadingSlash.slice(0, -1) : withLeadingSlash;
+  const withLeadingSlash = pathValue.startsWith("/")
+    ? pathValue
+    : `/${pathValue}`;
+  return withLeadingSlash.endsWith("/")
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
 }
 
 function buildLaunchURL(baseURL: string, manifestURL: string): string {
@@ -144,7 +156,8 @@ export async function serve<TSettings extends Record<string, SettingPrimitive>>(
   }
 
   const address = server.address();
-  const resolvedPort = typeof address === "object" && address ? address.port : port;
+  const resolvedPort =
+    typeof address === "object" && address ? address.port : port;
   const scheme = wantsHttps ? "https" : "http";
   const normalizedBasePath = normalizeBasePath(options.basePath);
 

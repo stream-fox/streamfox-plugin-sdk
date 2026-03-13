@@ -34,7 +34,11 @@ const plugin = definePlugin({
       handler: async () => ({
         streams: [
           {
-            transport: { kind: "http", url: "https://cdn.example.com/movie.mp4", mode: "stream" },
+            transport: {
+              kind: "http",
+              url: "https://cdn.example.com/movie.mp4",
+              mode: "stream",
+            },
           },
         ],
       }),
@@ -51,9 +55,9 @@ const server = await serve(plugin, {
   },
 });
 
-console.log(server.url);       // manifest URL
+console.log(server.url); // manifest URL
 console.log(server.installURL); // install deeplink
-console.log(server.launchURL);  // launch URL
+console.log(server.launchURL); // launch URL
 ```
 
 ## Validation Lifecycle
@@ -125,7 +129,11 @@ import {
 Subpath export is also available:
 
 ```ts
-import { validateManifest, validateRequest, validateResponse } from "@streamfox/plugin-sdk/advanced";
+import {
+  validateManifest,
+  validateRequest,
+  validateResponse,
+} from "@streamfox/plugin-sdk/advanced";
 ```
 
 ## Development

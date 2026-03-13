@@ -62,18 +62,28 @@ export function maximumJsonNestingDepth(payload: string): number {
   return maxDepth;
 }
 
-export function parseJsonWithLimits<T>(input: string | Uint8Array, limits: JsonParseLimits = {}): T {
+export function parseJsonWithLimits<T>(
+  input: string | Uint8Array,
+  limits: JsonParseLimits = {},
+): T {
   const maxPayloadBytes = limits.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES;
   const maxDepth = limits.maxDepth ?? DEFAULT_MAX_DEPTH;
 
   if (maxPayloadBytes <= 0) {
-    throw ProtocolError.invalidJson("maxPayloadBytes must be greater than 0", limits.traceId);
+    throw ProtocolError.invalidJson(
+      "maxPayloadBytes must be greater than 0",
+      limits.traceId,
+    );
   }
   if (maxDepth <= 0) {
-    throw ProtocolError.invalidJson("maxDepth must be greater than 0", limits.traceId);
+    throw ProtocolError.invalidJson(
+      "maxDepth must be greater than 0",
+      limits.traceId,
+    );
   }
 
-  const text = typeof input === "string" ? input : Buffer.from(input).toString("utf8");
+  const text =
+    typeof input === "string" ? input : Buffer.from(input).toString("utf8");
   const byteLength = Buffer.byteLength(text, "utf8");
 
   if (byteLength > maxPayloadBytes) {
