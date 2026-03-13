@@ -245,6 +245,11 @@ Recommended episodic video ID format:
 
 - `{parentMediaID}:{season}:{episode}`
 
+For series catalog endpoints that return episodes, use an optional `season` filter when you want to support both:
+
+- `/catalog/series/episodes?season=1` for a specific season
+- `/catalog/series/episodes` to return all episodes when no season is provided
+
 ## Plugin Catalog Extensions
 
 `PluginCard` supports:

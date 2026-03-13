@@ -165,6 +165,17 @@ const plugin = definePlugin({
           sortSetRefs: ["browseSorts"],
           filters: [filters.intOrRange("year"), filters.range("rating")],
         },
+        {
+          id: "episodes",
+          name: "Episodes",
+          mediaTypes: ["series"],
+          filters: [
+            filters.number("season", {
+              label: "Season",
+              group: "episodes",
+            }),
+          ],
+        },
       ],
       handler: async () => ({ items: [] }),
     },
@@ -179,6 +190,8 @@ Prefer semantic endpoint IDs such as `browse`, `discover`, and `search`. Keep va
 - `/catalog/movie/browse?year=2000..2024`
 - `/catalog/movie/browse?query=matrix`
 - `/catalog/movie/browse?orderBy=popular`
+- `/catalog/series/episodes?season=1`
+- `/catalog/series/episodes` to return all episodes when no season is provided
 
 ## Rich Media Details
 
