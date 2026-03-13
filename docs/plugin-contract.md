@@ -53,7 +53,7 @@ At least one resource is required.
 `FilterSpec`:
 
 - `key: string`
-- `valueType: "string" | "int" | "bool" | "stringList" | "intRange"`
+- `valueType: "string" | "int" | "bool" | "stringList" | "intRange" | "intOrRange"`
 - `isRequired?: boolean`
 - `label?: string`
 - `description?: string`
@@ -66,6 +66,12 @@ At least one resource is required.
 
 `allowedValues` is still decoded for compatibility, but `options` is the richer canonical model going forward.
 
+Range-capable numeric filters use one logical key:
+
+- `int`: exact only, for example `year=2024`
+- `intRange`: range only, for example `year=2000..2024`
+- `intOrRange`: exact or range on the same key
+
 Helper builders are exported from the SDK:
 
 - `filters.text(key, options?)`
@@ -73,6 +79,7 @@ Helper builders are exported from the SDK:
 - `filters.multiSelect(key, options)`
 - `filters.number(key, options?)`
 - `filters.range(key, options?)`
+- `filters.intOrRange(key, options?)`
 - `filters.toggle(key, options?)`
 - `sorts.choice(key, options?)`
 - `sorts.asc(key, options?)`

@@ -426,7 +426,7 @@ describe("definePlugin", () => {
               mediaTypes: ["movie"],
               filters: [
                 { key: "genre", valueType: "string" },
-                { key: "year", valueType: "intRange" },
+                { key: "year", valueType: "intOrRange" },
                 { key: "language", valueType: "string" },
               ],
               sorts: [
@@ -465,7 +465,7 @@ describe("definePlugin", () => {
         { key: "genre", value: { kind: "string", string: "Action" } },
         {
           key: "year",
-          value: { kind: "intRange", intRange: { min: 2024, max: 2024 } },
+          value: { kind: "int", int: 2024 },
         },
         { key: "language", value: { kind: "string", string: "Greek (el)" } },
       ],
@@ -528,7 +528,7 @@ describe("definePlugin", () => {
               mediaTypes: ["movie"],
               filterSetRefs: ["commonCatalogFilters"],
               sortSetRefs: ["browseSorts"],
-              filters: [filters.range("year")],
+              filters: [filters.intOrRange("year")],
             },
           ],
           handler: async (request) => {
@@ -555,7 +555,7 @@ describe("definePlugin", () => {
         { key: "genre", value: { kind: "string", string: "action" } },
         {
           key: "year",
-          value: { kind: "intRange", intRange: { min: 2024, max: 2024 } },
+          value: { kind: "int", int: 2024 },
         },
       ],
     });
@@ -582,6 +582,7 @@ describe("definePlugin", () => {
       "stringList",
     );
     expect(filters.range("year").control).toBe("range");
+    expect(filters.intOrRange("year").valueType).toBe("intOrRange");
     expect(filters.toggle("dubbed").valueType).toBe("bool");
     expect(
       sorts.desc("popularity", { aliases: ["popular"], label: "Popular" }),
@@ -763,6 +764,97 @@ describe("definePlugin", () => {
       catalogID: "browse",
       mediaType: "movie",
       sort: { key: "year", direction: "descending" },
+    });
+  });
+
+  it("parses exact-or-range filters from canonical single-key syntax", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.exact-or-range",
+        name: "Exact Or Range",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "browse",
+              name: "Browse",
+              mediaTypes: ["movie"],
+              filters: [filters.intOrRange("year"), filters.range("rating")],
+            },
+          ],
+          handler: async (request) => {
+            captured = request;
+            return { items: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    const exactResponse = await app.request("/catalog/movie/browse?year=2024");
+    expect(exactResponse.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "browse",
+      mediaType: "movie",
+      filters: [{ key: "year", value: { kind: "int", int: 2024 } }],
+    });
+
+    const rangeResponse = await app.request(
+      "/catalog/movie/browse?year=2000..2024&rating=7..10",
+    );
+    expect(rangeResponse.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "browse",
+      mediaType: "movie",
+      filters: [
+        {
+          key: "year",
+          value: { kind: "intRange", intRange: { min: 2000, max: 2024 } },
+        },
+        {
+          key: "rating",
+          value: { kind: "intRange", intRange: { min: 7, max: 10 } },
+        },
+      ],
+    });
+
+    const lowerBoundResponse = await app.request(
+      "/catalog/movie/browse?year=2000..",
+    );
+    expect(lowerBoundResponse.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "browse",
+      mediaType: "movie",
+      filters: [
+        {
+          key: "year",
+          value: { kind: "intRange", intRange: { min: 2000 } },
+        },
+      ],
+    });
+
+    const upperBoundResponse = await app.request(
+      "/catalog/movie/browse?year=..2024",
+    );
+    expect(upperBoundResponse.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "browse",
+      mediaType: "movie",
+      filters: [
+        {
+          key: "year",
+          value: { kind: "intRange", intRange: { max: 2024 } },
+        },
+      ],
     });
   });
 
@@ -1059,6 +1151,45 @@ describe("definePlugin", () => {
     );
     expect(orderOnlyResponse.status).toBe(400);
     expect((await orderOnlyResponse.json()).error.message).toContain("orderBy");
+  });
+
+  it("rejects malformed range syntax and legacy min/max aliases", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.reject-range-query",
+        name: "Reject Range Query",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "browse",
+              name: "Browse",
+              mediaTypes: ["movie"],
+              filters: [filters.intOrRange("year"), filters.range("rating")],
+            },
+          ],
+          handler: async () => ({ items: [] }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    for (const pathname of [
+      "/catalog/movie/browse?year=..",
+      "/catalog/movie/browse?year=2000...2024",
+      "/catalog/movie/browse?year=2000..2024..2025",
+      "/catalog/movie/browse?year=abc..2024",
+      "/catalog/movie/browse?rating=2024",
+      "/catalog/movie/browse?yearMin=2000&yearMax=2024",
+      "/catalog/movie/browse?ratingMin=7&ratingMax=10",
+    ]) {
+      const response = await app.request(pathname);
+      expect(response.status).toBe(400);
+      expect((await response.json()).error.code).toBe("REQUEST_INVALID");
+    }
   });
 
   it("returns redirect responses from handlers", async () => {

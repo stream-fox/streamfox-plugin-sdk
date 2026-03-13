@@ -112,8 +112,17 @@ function parseIntegerQueryValue(
     return undefined;
   }
 
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed)) {
+  const normalized = value.trim();
+  if (!/^-?\d+$/.test(normalized)) {
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must be an integer`,
+      { key, value },
+      traceId,
+    );
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed)) {
     throw ProtocolError.requestInvalid(
       `query parameter '${key}' must be an integer`,
       { key, value },
@@ -122,6 +131,77 @@ function parseIntegerQueryValue(
   }
 
   return parsed;
+}
+
+function rejectLegacyRangeAliases(
+  searchParams: URLSearchParams,
+  key: string,
+  traceId?: string,
+): void {
+  rejectUnsupportedQueryParam(searchParams, `${key}Min`, key, traceId);
+  rejectUnsupportedQueryParam(searchParams, `${key}Max`, key, traceId);
+}
+
+function parseIntRangeExpression(
+  value: string | null,
+  key: string,
+  traceId?: string,
+): { min?: number; max?: number } | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must be an integer range expression`,
+      { key, value },
+      traceId,
+    );
+  }
+
+  const delimiterIndex = normalized.indexOf("..");
+  if (delimiterIndex === -1) {
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must use '..' for range expressions`,
+      { key, value },
+      traceId,
+    );
+  }
+
+  if (
+    normalized.includes("...") ||
+    normalized.indexOf("..", delimiterIndex + 2) !== -1
+  ) {
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must be a single inclusive range expression`,
+      { key, value },
+      traceId,
+    );
+  }
+
+  const minRaw = normalized.slice(0, delimiterIndex).trim();
+  const maxRaw = normalized.slice(delimiterIndex + 2).trim();
+
+  if (minRaw.length === 0 && maxRaw.length === 0) {
+    throw ProtocolError.requestInvalid(
+      `query parameter '${key}' must include at least one range bound`,
+      { key, value },
+      traceId,
+    );
+  }
+
+  const min = minRaw.length
+    ? parseIntegerQueryValue(minRaw, key, traceId)
+    : undefined;
+  const max = maxRaw.length
+    ? parseIntegerQueryValue(maxRaw, key, traceId)
+    : undefined;
+
+  return {
+    ...(min !== undefined ? { min } : {}),
+    ...(max !== undefined ? { max } : {}),
+  };
 }
 
 function rejectUnsupportedQueryParam(
@@ -616,39 +696,43 @@ function buildFilterValueFromAlias(
         : undefined;
     }
     case "intRange": {
-      const directInt = parseIntegerQueryValue(directValue, spec.key, traceId);
-      const min = parseIntegerQueryValue(
-        searchParams.get(`${spec.key}Min`),
-        `${spec.key}Min`,
-        traceId,
-      );
-      const max = parseIntegerQueryValue(
-        searchParams.get(`${spec.key}Max`),
-        `${spec.key}Max`,
-        traceId,
-      );
+      rejectLegacyRangeAliases(searchParams, spec.key, traceId);
+      const range = parseIntRangeExpression(directValue, spec.key, traceId);
+      return range !== undefined
+        ? {
+            kind: "intRange",
+            intRange: range,
+          }
+        : undefined;
+    }
+    case "intOrRange": {
+      rejectLegacyRangeAliases(searchParams, spec.key, traceId);
+      if (directValue === null) {
+        return undefined;
+      }
 
-      if (directInt !== undefined) {
+      const normalized = directValue.trim();
+      if (normalized.length === 0) {
+        throw ProtocolError.requestInvalid(
+          `query parameter '${spec.key}' must be an integer or range expression`,
+          { key: spec.key, value: directValue },
+          traceId,
+        );
+      }
+
+      if (normalized.includes("..")) {
+        const range = parseIntRangeExpression(directValue, spec.key, traceId);
+        if (range === undefined) {
+          return undefined;
+        }
         return {
           kind: "intRange",
-          intRange: {
-            min: directInt,
-            max: directInt,
-          },
+          intRange: range,
         };
       }
 
-      if (min !== undefined || max !== undefined) {
-        return {
-          kind: "intRange",
-          intRange: {
-            ...(min !== undefined ? { min } : {}),
-            ...(max !== undefined ? { max } : {}),
-          },
-        };
-      }
-
-      return undefined;
+      const value = parseIntegerQueryValue(directValue, spec.key, traceId);
+      return value !== undefined ? { kind: "int", int: value } : undefined;
     }
     default:
       return undefined;

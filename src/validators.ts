@@ -526,8 +526,12 @@ function validateFilterValueType(
   spec: FilterSpec,
   traceId?: string,
 ): void {
+  const kinds =
+    spec.valueType === "intOrRange"
+      ? new Set(["int", "intRange"])
+      : new Set([spec.valueType]);
   assertRequest(
-    filter.value.kind === spec.valueType,
+    kinds.has(filter.value.kind),
     `filter '${spec.key}' expects type '${spec.valueType}'`,
     undefined,
     traceId,

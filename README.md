@@ -90,6 +90,7 @@ Resource routes use one HTTP style:
 Examples:
 
 - `/catalog/movie/browse?genre=action&year=2024&locale=el-GR&page=0&pageSize=20&orderBy=popular`
+- `/catalog/movie/browse?year=2000..2024&rating=7..10`
 - `/catalog/movie/browse?orderBy=rating&order=asc`
 - `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
 - `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
@@ -162,7 +163,7 @@ const plugin = definePlugin({
           mediaTypes: ["movie"],
           filterSetRefs: ["commonCatalogFilters"],
           sortSetRefs: ["browseSorts"],
-          filters: [filters.range("year")],
+          filters: [filters.intOrRange("year"), filters.range("rating")],
         },
       ],
       handler: async () => ({ items: [] }),
@@ -175,6 +176,7 @@ Prefer semantic endpoint IDs such as `browse`, `discover`, and `search`. Keep va
 
 - `/catalog/movie/browse?language=ja`
 - `/catalog/movie/browse?year=2024`
+- `/catalog/movie/browse?year=2000..2024`
 - `/catalog/movie/browse?query=matrix`
 - `/catalog/movie/browse?orderBy=popular`
 

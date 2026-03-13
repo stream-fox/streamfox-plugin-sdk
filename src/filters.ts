@@ -23,6 +23,9 @@ type MultiSelectFilterBuilderOptions = BaseFilterBuilderOptions<string[]> & {
 };
 type NumberFilterBuilderOptions = BaseFilterBuilderOptions<number>;
 type RangeFilterBuilderOptions = BaseFilterBuilderOptions<FilterDefaultValue>;
+type IntOrRangeFilterBuilderOptions = BaseFilterBuilderOptions<
+  number | FilterDefaultValue
+>;
 type ToggleFilterBuilderOptions = BaseFilterBuilderOptions<boolean>;
 
 function labelForKey(key: string): string {
@@ -81,6 +84,12 @@ export const filters = {
   },
   range(key: string, options: RangeFilterBuilderOptions = {}): FilterSpec {
     return buildFilterSpec(key, "intRange", "range", options);
+  },
+  intOrRange(
+    key: string,
+    options: IntOrRangeFilterBuilderOptions = {},
+  ): FilterSpec {
+    return buildFilterSpec(key, "intOrRange", "range", options);
   },
   toggle(key: string, options: ToggleFilterBuilderOptions = {}): FilterSpec {
     return buildFilterSpec(key, "bool", "toggle", options);

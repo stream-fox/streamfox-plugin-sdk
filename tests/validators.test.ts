@@ -130,6 +130,73 @@ describe("request parity", () => {
       ProtocolError,
     );
   });
+
+  it("accepts exact and range request values for intOrRange filters", () => {
+    const exactOrRangeManifest = validateManifest({
+      ...fixture<Manifest>("manifest", "manifest_valid"),
+      capabilities: [
+        {
+          kind: "catalog",
+          endpoints: [
+            {
+              id: "browse",
+              name: "Browse",
+              mediaTypes: ["movie"],
+              filters: [
+                { key: "year", valueType: "intOrRange", isRequired: true },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(() =>
+      validateRequest(
+        "catalog",
+        {
+          schemaVersion: { major: 1, minor: 0 },
+          catalogID: "browse",
+          mediaType: "movie",
+          filters: [{ key: "year", value: { kind: "int", int: 2024 } }],
+        },
+        exactOrRangeManifest,
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      validateRequest(
+        "catalog",
+        {
+          schemaVersion: { major: 1, minor: 0 },
+          catalogID: "browse",
+          mediaType: "movie",
+          filters: [
+            {
+              key: "year",
+              value: { kind: "intRange", intRange: { min: 2000, max: 2024 } },
+            },
+          ],
+        },
+        exactOrRangeManifest,
+      ),
+    ).not.toThrow();
+  });
+
+  it("keeps intRange filters range-only during request validation", () => {
+    expect(() =>
+      validateRequest(
+        "catalog",
+        {
+          schemaVersion: { major: 1, minor: 0 },
+          catalogID: "top",
+          mediaType: "movie",
+          filters: [{ key: "year", value: { kind: "int", int: 2024 } }],
+        },
+        manifest,
+      ),
+    ).toThrow(ProtocolError);
+  });
 });
 
 describe("response parity", () => {

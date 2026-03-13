@@ -109,7 +109,7 @@ Common query payload keys:
 Catalog-specific:
 
 - `query`
-- declared filter aliases, such as `genre=Action`, `year=2024`, `language=el`
+- declared filter aliases, such as `genre=Action`, `year=2024`, `year=2000..2024`, `language=el`
 - `orderBy` + optional `order`
 - `page` + `pageSize`
 - `pageIndex` + `pageSize`
@@ -138,6 +138,7 @@ Legacy structured request params such as `request`, `schemaVersion`, `context`, 
 Examples:
 
 - `/catalog/movie/browse?genre=action&language=ja&year=2024&locale=el-GR&page=0&pageSize=20&orderBy=popular`
+- `/catalog/movie/browse?year=2000..2024&rating=7..10`
 - `/catalog/movie/browse?orderBy=rating&order=asc`
 - `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
 - `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
@@ -154,6 +155,15 @@ When a filter option declares aliases, the parsed request normalizes to the cano
 
 - `/catalog/movie/browse?language=ja`
 - `/catalog/movie/browse?language=Japanese%20(ja)`
+
+Range-capable numeric filters use one query key per logical control:
+
+- exact: `year=2024`
+- bounded range: `year=2000..2024`
+- lower-bounded: `year=2000..`
+- upper-bounded: `year=..2024`
+
+Legacy `keyMin` / `keyMax` aliases are rejected on GET catalog routes.
 
 Effective sorts are the merged result of:
 

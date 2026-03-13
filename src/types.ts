@@ -23,7 +23,8 @@ export type FilterValueType =
   | "int"
   | "bool"
   | "stringList"
-  | "intRange";
+  | "intRange"
+  | "intOrRange";
 export type FilterControl =
   | "select"
   | "multi_select"
