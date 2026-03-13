@@ -12,8 +12,14 @@ import {
   type ResourceKind,
   type ResourceRequestMap,
   type ResourceResponseMap,
+  type SortSpec,
 } from "./types";
-import { deepFreeze, isRecord, resolveCatalogEndpointFilters } from "./utils";
+import {
+  deepFreeze,
+  isRecord,
+  resolveCatalogEndpointFilters,
+  resolveCatalogEndpointSorts,
+} from "./utils";
 import { validateManifest } from "./validators";
 
 export interface HandlerContext<
@@ -109,6 +115,7 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
   const capabilityByKind: Partial<Record<ResourceKind, Capability>> = {};
   const catalogEndpointByID = new Map<string, CatalogEndpoint>();
   const catalogFiltersByEndpointID = new Map<string, readonly FilterSpec[]>();
+  const catalogSortsByEndpointID = new Map<string, readonly SortSpec[]>();
   const pluginCatalogEndpointByID = new Map<string, PluginCatalogEndpoint>();
 
   for (const capability of manifest.capabilities) {
@@ -120,6 +127,10 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
         catalogFiltersByEndpointID.set(
           endpoint.id,
           resolveCatalogEndpointFilters(capability, endpoint),
+        );
+        catalogSortsByEndpointID.set(
+          endpoint.id,
+          resolveCatalogEndpointSorts(capability, endpoint),
         );
       }
       continue;
@@ -136,6 +147,7 @@ function buildManifestIndex(manifest: Manifest): ManifestIndex {
     capabilityByKind,
     catalogEndpointByID,
     catalogFiltersByEndpointID,
+    catalogSortsByEndpointID,
     pluginCatalogEndpointByID,
   };
 }

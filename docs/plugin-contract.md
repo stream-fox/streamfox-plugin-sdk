@@ -33,6 +33,7 @@ At least one resource is required.
 ```ts
 {
   filterSets?: Record<string, FilterSpec[]>;
+  sortSets?: Record<string, SortSpec[]>;
   endpoints: CatalogEndpoint[];
   handler: PluginHandler<"catalog">;
 }
@@ -44,9 +45,10 @@ At least one resource is required.
 - `name: string`
 - `mediaTypes: MediaType[]`
 - `filterSetRefs?: string[]`
+- `sortSetRefs?: string[]`
 - `filters?: FilterSpec[]`
 - `paging?: { defaultPageSize?, maxPageSize? }`
-- `sorts?: Array<{ key, directions: ("ascending"|"descending")[] }>`
+- `sorts?: SortSpec[]`
 
 `FilterSpec`:
 
@@ -72,6 +74,19 @@ Helper builders are exported from the SDK:
 - `filters.number(key, options?)`
 - `filters.range(key, options?)`
 - `filters.toggle(key, options?)`
+- `sorts.choice(key, options?)`
+- `sorts.asc(key, options?)`
+- `sorts.desc(key, options?)`
+
+`SortSpec`:
+
+- `key: string`
+- `label?: string`
+- `description?: string`
+- `group?: string`
+- `aliases?: string[]`
+- `directions: ("ascending"|"descending")[]`
+- `defaultDirection?: "ascending"|"descending"`
 
 #### `meta`
 

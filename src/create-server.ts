@@ -124,6 +124,24 @@ function parseIntegerQueryValue(
   return parsed;
 }
 
+function rejectUnsupportedQueryParam(
+  searchParams: URLSearchParams,
+  key: string,
+  replacement: string,
+  traceId?: string,
+): void {
+  const value = parseOptionalString(searchParams.get(key));
+  if (!value) {
+    return;
+  }
+
+  throw ProtocolError.requestInvalid(
+    `query parameter '${key}' is not supported on GET resource routes; use '${replacement}' instead`,
+    { key, value },
+    traceId,
+  );
+}
+
 function parseBooleanQueryValue(
   value: string | null,
   key: string,
@@ -313,8 +331,7 @@ function parseExperimentalFromQuery(
     return {
       namespace,
       key,
-      value:
-        rawValue === undefined ? true : parseExperimentalScalar(rawValue),
+      value: rawValue === undefined ? true : parseExperimentalScalar(rawValue),
     };
   });
 }
@@ -382,7 +399,11 @@ function parsePageFromQuery(
   searchParams: URLSearchParams,
   traceId?: string,
 ): RequestPage | undefined {
-  const page = parseIntegerQueryValue(searchParams.get("page"), "page", traceId);
+  const page = parseIntegerQueryValue(
+    searchParams.get("page"),
+    "page",
+    traceId,
+  );
   const index = parseIntegerQueryValue(
     searchParams.get("pageIndex"),
     "pageIndex",
@@ -403,23 +424,88 @@ function parsePageFromQuery(
   };
 }
 
-function parseSortFromQuery(searchParams: URLSearchParams): RequestSort | undefined {
-  const key = parseOptionalString(searchParams.get("sortKey"));
-  const direction = parseOptionalString(searchParams.get("sortDirection"));
-  if (!key && !direction) {
+function parseSortDirectionAlias(
+  value: string | undefined,
+  key: string,
+  traceId?: string,
+): RequestSort["direction"] | undefined {
+  if (!value) {
     return undefined;
   }
 
-  const normalizedDirection =
-    direction?.toLowerCase() === "desc"
-      ? "descending"
-      : direction?.toLowerCase() === "asc"
-        ? "ascending"
-        : direction;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "asc" || normalized === "ascending") {
+    return "ascending";
+  }
+  if (normalized === "desc" || normalized === "descending") {
+    return "descending";
+  }
+
+  throw ProtocolError.requestInvalid(
+    `query parameter '${key}' has invalid value '${value}'`,
+    { key, value },
+    traceId,
+  );
+}
+
+function parseSortFromQuery(
+  searchParams: URLSearchParams,
+  manifestIndex: ManifestIndex | undefined,
+  catalogID: string,
+  traceId?: string,
+): RequestSort | undefined {
+  rejectUnsupportedQueryParam(searchParams, "sortKey", "orderBy", traceId);
+  rejectUnsupportedQueryParam(searchParams, "sortDirection", "order", traceId);
+
+  const orderBy = parseOptionalString(searchParams.get("orderBy"));
+  const order = parseSortDirectionAlias(
+    parseOptionalString(searchParams.get("order")),
+    "order",
+    traceId,
+  );
+
+  if (!orderBy && !order) {
+    return undefined;
+  }
+
+  if (!orderBy && order) {
+    throw ProtocolError.requestInvalid(
+      "query parameter 'order' requires 'orderBy'",
+      { order },
+      traceId,
+    );
+  }
+
+  const endpointSorts =
+    manifestIndex?.catalogSortsByEndpointID.get(catalogID) ?? [];
+  if (endpointSorts.length === 0) {
+    return undefined;
+  }
+
+  const match = endpointSorts.find((candidate) => {
+    if (candidate.key.trim().toLowerCase() === orderBy?.trim().toLowerCase()) {
+      return true;
+    }
+    return (candidate.aliases ?? []).some(
+      (alias) => alias.trim().toLowerCase() === orderBy?.trim().toLowerCase(),
+    );
+  });
+
+  if (!match) {
+    return orderBy
+      ? {
+          key: orderBy,
+          direction: order ?? "descending",
+        }
+      : undefined;
+  }
+
+  const direction =
+    order ?? match.defaultDirection ?? match.directions[0] ?? "descending";
 
   return {
-    key: key ?? "",
-    direction: (normalizedDirection ?? "ascending") as RequestSort["direction"],
+    key: match.key,
+    direction,
   };
 }
 
@@ -456,7 +542,9 @@ function parsePlaybackFromQuery(
     "startPositionSeconds",
     traceId,
   );
-  const networkProfile = parseOptionalString(searchParams.get("networkProfile"));
+  const networkProfile = parseOptionalString(
+    searchParams.get("networkProfile"),
+  );
 
   if (startPositionSeconds !== undefined) {
     playback.startPositionSeconds = startPositionSeconds;
@@ -574,7 +662,10 @@ function parseCatalogFiltersFromQuery(
   traceId?: string,
 ): RequestFilter[] | undefined {
   const endpoint = manifestIndex?.catalogEndpointByID.get(catalogID);
-  const filterSpecs = manifestIndex?.catalogFiltersByEndpointID.get(catalogID) ?? endpoint?.filters ?? [];
+  const filterSpecs =
+    manifestIndex?.catalogFiltersByEndpointID.get(catalogID) ??
+    endpoint?.filters ??
+    [];
 
   if (filterSpecs.length === 0) {
     return undefined;
@@ -583,7 +674,9 @@ function parseCatalogFiltersFromQuery(
   const synthesizedFilters = filterSpecs
     .map((spec) => {
       const value = buildFilterValueFromAlias(spec, searchParams, traceId);
-      return value ? ({ key: spec.key, value } satisfies RequestFilter) : undefined;
+      return value
+        ? ({ key: spec.key, value } satisfies RequestFilter)
+        : undefined;
     })
     .filter((filter): filter is RequestFilter => filter !== undefined);
 
@@ -628,7 +721,10 @@ function parseRequestFromQuery<K extends ResourceKind>(
   rejectStructuredQueryParam(searchParams, "filters", headerTraceId);
   rejectStructuredQueryParam(searchParams, "playback", headerTraceId);
 
-  const schemaVersion = parseSchemaVersionFromQuery(searchParams, headerTraceId);
+  const schemaVersion = parseSchemaVersionFromQuery(
+    searchParams,
+    headerTraceId,
+  );
   const context = parseContextFromQuery(searchParams);
   const experimental = parseExperimentalFromQuery(searchParams, headerTraceId);
   const mediaType = resolveIdentifierFromPathOrQuery(
@@ -656,7 +752,12 @@ function parseRequestFromQuery<K extends ResourceKind>(
     case "catalog": {
       const query = parseOptionalString(searchParams.get("query"));
       const page = parsePageFromQuery(searchParams, headerTraceId);
-      const sort = parseSortFromQuery(searchParams);
+      const sort = parseSortFromQuery(
+        searchParams,
+        manifestIndex,
+        catalogID,
+        headerTraceId,
+      );
       const filters = parseCatalogFiltersFromQuery(
         searchParams,
         manifestIndex,

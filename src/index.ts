@@ -6,5 +6,6 @@ export * from "./install";
 export * from "./plugin";
 export * from "./schema";
 export * from "./serve";
+export * from "./sorts";
 export * from "./types";
 export * from "./validators";

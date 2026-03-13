@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createServer, definePlugin, filters, settings } from "../src/index";
+import {
+  createServer,
+  definePlugin,
+  filters,
+  settings,
+  sorts,
+} from "../src/index";
 
 describe("definePlugin", () => {
   it("builds manifest and injects schemaVersion into handler response", async () => {
@@ -423,6 +429,15 @@ describe("definePlugin", () => {
                 { key: "year", valueType: "intRange" },
                 { key: "language", valueType: "string" },
               ],
+              sorts: [
+                {
+                  key: "popularity",
+                  label: "Popular",
+                  aliases: ["popular"],
+                  directions: ["descending"],
+                  defaultDirection: "descending",
+                },
+              ],
             },
           ],
           handler: async (request) => {
@@ -435,7 +450,7 @@ describe("definePlugin", () => {
 
     const app = createServer(plugin, { frontend: false });
     const response = await app.request(
-      "/catalog/movie/popular?genre=Action&year=2024&language=Greek%20(el)&locale=el-GR&regionCode=GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc&query=matrix&ignored=value",
+      "/catalog/movie/popular?genre=Action&year=2024&language=Greek%20(el)&locale=el-GR&regionCode=GR&page=0&pageSize=20&orderBy=popular&query=matrix&ignored=value",
     );
 
     expect(response.status).toBe(200);
@@ -492,12 +507,27 @@ describe("definePlugin", () => {
               }),
             ],
           },
+          sortSets: {
+            browseSorts: [
+              sorts.desc("popularity", {
+                label: "Popular",
+                aliases: ["popular"],
+              }),
+              sorts.choice("rating", {
+                label: "Top Rated",
+                aliases: ["top-rated"],
+                directions: ["descending", "ascending"],
+                defaultDirection: "descending",
+              }),
+            ],
+          },
           endpoints: [
             {
               id: "discover",
               name: "Discover",
               mediaTypes: ["movie"],
               filterSetRefs: ["commonCatalogFilters"],
+              sortSetRefs: ["browseSorts"],
               filters: [filters.range("year")],
             },
           ],
@@ -511,7 +541,7 @@ describe("definePlugin", () => {
 
     const app = createServer(plugin, { frontend: false });
     const response = await app.request(
-      "/catalog/movie/discover?language=Japanese%20(ja)&genre=Action&year=2024&ignored=skip",
+      "/catalog/movie/discover?language=Japanese%20(ja)&genre=Action&year=2024&orderBy=top-rated&order=asc&ignored=skip",
     );
 
     expect(response.status).toBe(200);
@@ -519,6 +549,7 @@ describe("definePlugin", () => {
       schemaVersion: { major: 1, minor: 0 },
       catalogID: "discover",
       mediaType: "movie",
+      sort: { key: "rating", direction: "ascending" },
       filters: [
         { key: "language", value: { kind: "string", string: "ja" } },
         { key: "genre", value: { kind: "string", string: "action" } },
@@ -534,7 +565,9 @@ describe("definePlugin", () => {
     expect(
       filters.select("language", {
         description: "Preferred language",
-        options: [{ label: "Japanese", value: "ja", aliases: ["Japanese (ja)"] }],
+        options: [
+          { label: "Japanese", value: "ja", aliases: ["Japanese (ja)"] },
+        ],
       }),
     ).toEqual({
       key: "language",
@@ -550,6 +583,15 @@ describe("definePlugin", () => {
     );
     expect(filters.range("year").control).toBe("range");
     expect(filters.toggle("dubbed").valueType).toBe("bool");
+    expect(
+      sorts.desc("popularity", { aliases: ["popular"], label: "Popular" }),
+    ).toEqual({
+      key: "popularity",
+      label: "Popular",
+      aliases: ["popular"],
+      directions: ["descending"],
+      defaultDirection: "descending",
+    });
   });
 
   it("rejects unknown filter set references", () => {
@@ -679,6 +721,133 @@ describe("definePlugin", () => {
     });
   });
 
+  it("uses declared defaultDirection when order is omitted", async () => {
+    let captured: unknown;
+
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.default-sort-direction",
+        name: "Default Sort Direction",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "browse",
+              name: "Browse",
+              mediaTypes: ["movie"],
+              sorts: [
+                sorts.choice("year", {
+                  label: "Latest",
+                  aliases: ["latest"],
+                  directions: ["descending", "ascending"],
+                  defaultDirection: "descending",
+                }),
+              ],
+            },
+          ],
+          handler: async (request) => {
+            captured = request;
+            return { items: [] };
+          },
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+    const response = await app.request("/catalog/movie/browse?orderBy=latest");
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      schemaVersion: { major: 1, minor: 0 },
+      catalogID: "browse",
+      mediaType: "movie",
+      sort: { key: "year", direction: "descending" },
+    });
+  });
+
+  it("rejects unknown sort set references", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.missing-sort-set",
+          name: "Missing Sort Set",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            endpoints: [
+              {
+                id: "browse",
+                name: "Browse",
+                mediaTypes: ["movie"],
+                sortSetRefs: ["browseSorts"],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/unknown sort set/i);
+  });
+
+  it("rejects duplicate merged sort keys across sort sets and endpoints", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.duplicate-sort-key",
+          name: "Duplicate Sort Key",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            sortSets: {
+              browseSorts: [sorts.desc("popularity")],
+            },
+            endpoints: [
+              {
+                id: "browse",
+                name: "Browse",
+                mediaTypes: ["movie"],
+                sortSetRefs: ["browseSorts"],
+                sorts: [sorts.asc("popularity")],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/Sort 'popularity' is duplicated/i);
+  });
+
+  it("rejects sort aliases that collide with another canonical sort key", () => {
+    expect(() =>
+      definePlugin({
+        plugin: {
+          id: "com.example.sort-alias-collision",
+          name: "Sort Alias Collision",
+          version: "1.0.0",
+        },
+        resources: {
+          catalog: {
+            endpoints: [
+              {
+                id: "browse",
+                name: "Browse",
+                mediaTypes: ["movie"],
+                sorts: [
+                  sorts.desc("popularity", { aliases: ["rating"] }),
+                  sorts.desc("rating"),
+                ],
+              },
+            ],
+            handler: async () => ({ items: [] }),
+          },
+        },
+      }),
+    ).toThrow(/collides with a canonical sort key/i);
+  });
+
   it("parses meta and stream aliases into canonical requests", async () => {
     const captured: {
       meta?: unknown;
@@ -712,7 +881,9 @@ describe("definePlugin", () => {
 
     const app = createServer(plugin, { frontend: false });
 
-    const metaResponse = await app.request("/meta/movie/tt0133093?locale=el-GR&regionCode=GR");
+    const metaResponse = await app.request(
+      "/meta/movie/tt0133093?locale=el-GR&regionCode=GR",
+    );
     expect(metaResponse.status).toBe(200);
     expect(captured.meta).toEqual({
       schemaVersion: { major: 1, minor: 0 },
@@ -830,19 +1001,64 @@ describe("definePlugin", () => {
       "/subtitles/movie/tt125?schemaVersion=%7B%22major%22%3A1%2C%22minor%22%3A0%7D",
     );
     expect(schemaResponse.status).toBe(400);
-    expect((await schemaResponse.json()).error.message).toContain("schemaVersion");
+    expect((await schemaResponse.json()).error.message).toContain(
+      "schemaVersion",
+    );
 
     const experimentalResponse = await app.request(
       "/subtitles/movie/tt125?experimental=%5B%7B%22namespace%22%3A%22x%22%2C%22key%22%3A%22y%22%2C%22value%22%3Atrue%7D%5D",
     );
     expect(experimentalResponse.status).toBe(400);
-    expect((await experimentalResponse.json()).error.message).toContain("experimental");
+    expect((await experimentalResponse.json()).error.message).toContain(
+      "experimental",
+    );
 
     const fingerprintResponse = await app.request(
       "/subtitles/movie/tt125?videoFingerprint=%7B%22hash%22%3A%22abc%22%7D",
     );
     expect(fingerprintResponse.status).toBe(400);
-    expect((await fingerprintResponse.json()).error.message).toContain("videoFingerprint");
+    expect((await fingerprintResponse.json()).error.message).toContain(
+      "videoFingerprint",
+    );
+  });
+
+  it("rejects legacy sort aliases and invalid order usage", async () => {
+    const plugin = definePlugin({
+      plugin: {
+        id: "com.example.reject-legacy-sort-query",
+        name: "Reject Legacy Sort Query",
+        version: "1.0.0",
+      },
+      resources: {
+        catalog: {
+          endpoints: [
+            {
+              id: "browse",
+              name: "Browse",
+              mediaTypes: ["movie"],
+              sorts: [sorts.desc("popularity", { aliases: ["popular"] })],
+            },
+          ],
+          handler: async () => ({ items: [] }),
+        },
+      },
+    });
+
+    const app = createServer(plugin, { frontend: false });
+
+    const legacySortKeyResponse = await app.request(
+      "/catalog/movie/browse?sortKey=popularity&sortDirection=desc",
+    );
+    expect(legacySortKeyResponse.status).toBe(400);
+    expect((await legacySortKeyResponse.json()).error.message).toContain(
+      "orderBy",
+    );
+
+    const orderOnlyResponse = await app.request(
+      "/catalog/movie/browse?order=desc",
+    );
+    expect(orderOnlyResponse.status).toBe(400);
+    expect((await orderOnlyResponse.json()).error.message).toContain("orderBy");
   });
 
   it("returns redirect responses from handlers", async () => {

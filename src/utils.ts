@@ -6,6 +6,7 @@ import type {
   Manifest,
   PluginCatalogCapability,
   ResourceKind,
+  SortSpec,
   StreamCapability,
   CatalogCapability,
   MetaCapability,
@@ -81,13 +82,42 @@ export function resolveCatalogEndpointFilters(
   return [...resolvedFromSets, ...asArray(endpoint.filters)];
 }
 
+export function resolveCatalogEndpointSorts(
+  capability: CatalogCapability | undefined,
+  endpoint: CatalogEndpoint | undefined,
+): SortSpec[] {
+  if (!capability || !endpoint) {
+    return [];
+  }
+
+  const sortSetRefs = asArray(endpoint.sortSetRefs);
+  const resolvedFromSets = sortSetRefs.flatMap(
+    (ref) => capability.sortSets?.[ref] ?? [],
+  );
+
+  return [...resolvedFromSets, ...asArray(endpoint.sorts)];
+}
+
 export function getCatalogEndpointFilters(
   manifest: Manifest,
   catalogID: string,
 ): FilterSpec[] {
   const capability = getCatalogCapability(manifest);
-  const endpoint = capability?.endpoints.find((candidate) => candidate.id === catalogID);
+  const endpoint = capability?.endpoints.find(
+    (candidate) => candidate.id === catalogID,
+  );
   return resolveCatalogEndpointFilters(capability, endpoint);
+}
+
+export function getCatalogEndpointSorts(
+  manifest: Manifest,
+  catalogID: string,
+): SortSpec[] {
+  const capability = getCatalogCapability(manifest);
+  const endpoint = capability?.endpoints.find(
+    (candidate) => candidate.id === catalogID,
+  );
+  return resolveCatalogEndpointSorts(capability, endpoint);
 }
 
 export function getMetaCapability(

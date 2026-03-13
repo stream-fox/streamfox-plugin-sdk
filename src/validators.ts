@@ -37,6 +37,7 @@ import {
   nonBlank,
   normalizeFilterOptions,
   resolveCatalogEndpointFilters,
+  resolveCatalogEndpointSorts,
 } from "./utils";
 
 const SEMVER_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/;
@@ -121,10 +122,7 @@ function checkSupportedSchemaVersion(
   }
 }
 
-function validateFilterSpecs(
-  filters: FilterSpec[],
-  ownerLabel: string,
-): void {
+function validateFilterSpecs(filters: FilterSpec[], ownerLabel: string): void {
   const seenFilterKeys = new Set<string>();
 
   for (const filter of filters) {
@@ -182,6 +180,80 @@ function validateFilterSpecs(
   }
 }
 
+function validateSortSpecs(
+  sorts: import("./types").SortSpec[],
+  ownerLabel: string,
+): void {
+  const seenSortKeys = new Set<string>();
+  const normalizedSortKeys = new Set(
+    sorts.map((sort) => sort.key.trim().toLowerCase()),
+  );
+  const seenAliases = new Set<string>();
+
+  for (const sort of sorts) {
+    assertManifest(
+      nonBlank(sort.key),
+      `Sort key cannot be empty in ${ownerLabel}`,
+    );
+    assertManifest(
+      !seenSortKeys.has(sort.key),
+      `Sort '${sort.key}' is duplicated in ${ownerLabel}`,
+    );
+    seenSortKeys.add(sort.key);
+
+    if (sort.label !== undefined) {
+      assertManifest(
+        nonBlank(sort.label),
+        `Sort '${sort.key}' in ${ownerLabel} cannot have a blank label`,
+      );
+    }
+
+    const directions = asArray(sort.directions);
+    assertManifest(
+      directions.length > 0,
+      `Sort '${sort.key}' in ${ownerLabel} must declare at least one direction`,
+    );
+
+    const seenDirections = new Set<string>();
+    for (const direction of directions) {
+      assertManifest(
+        direction === "ascending" || direction === "descending",
+        `Sort '${sort.key}' in ${ownerLabel} contains unsupported direction '${String(direction)}'`,
+      );
+      assertManifest(
+        !seenDirections.has(direction),
+        `Sort '${sort.key}' in ${ownerLabel} contains duplicate direction '${direction}'`,
+      );
+      seenDirections.add(direction);
+    }
+
+    if (sort.defaultDirection !== undefined) {
+      assertManifest(
+        directions.includes(sort.defaultDirection),
+        `Sort '${sort.key}' in ${ownerLabel} has defaultDirection '${sort.defaultDirection}' that is not declared in directions`,
+      );
+    }
+
+    for (const alias of asArray(sort.aliases)) {
+      assertManifest(
+        nonBlank(alias),
+        `Sort '${sort.key}' in ${ownerLabel} contains a blank alias`,
+      );
+      const normalizedAlias = alias.trim().toLowerCase();
+      assertManifest(
+        normalizedAlias === sort.key.trim().toLowerCase() ||
+          !normalizedSortKeys.has(normalizedAlias),
+        `Sort '${sort.key}' in ${ownerLabel} contains alias '${alias}' that collides with a canonical sort key`,
+      );
+      assertManifest(
+        !seenAliases.has(normalizedAlias),
+        `Sort '${sort.key}' in ${ownerLabel} contains duplicate alias '${alias}'`,
+      );
+      seenAliases.add(normalizedAlias);
+    }
+  }
+}
+
 function validateManifestCatalogCapability(
   capability: Extract<Capability, { kind: "catalog" }>,
 ): void {
@@ -200,6 +272,15 @@ function validateManifestCatalogCapability(
       "Catalog filter set name cannot be empty",
     );
     validateFilterSpecs(asArray(filters), `filter set '${filterSetName}'`);
+  }
+  for (const [sortSetName, sorts] of Object.entries(
+    capability.sortSets ?? {},
+  )) {
+    assertManifest(
+      nonBlank(sortSetName),
+      "Catalog sort set name cannot be empty",
+    );
+    validateSortSpecs(asArray(sorts), `sort set '${sortSetName}'`);
   }
 
   for (const endpoint of endpoints) {
@@ -227,9 +308,23 @@ function validateManifestCatalogCapability(
         `Catalog endpoint '${endpoint.id}' references unknown filter set '${filterSetRef}'`,
       );
     }
+    for (const sortSetRef of asArray(endpoint.sortSetRefs)) {
+      assertManifest(
+        nonBlank(sortSetRef),
+        `Catalog endpoint '${endpoint.id}' contains a blank sortSetRef`,
+      );
+      assertManifest(
+        !!capability.sortSets?.[sortSetRef],
+        `Catalog endpoint '${endpoint.id}' references unknown sort set '${sortSetRef}'`,
+      );
+    }
 
     validateFilterSpecs(
       resolveCatalogEndpointFilters(capability, endpoint),
+      `endpoint '${endpoint.id}'`,
+    );
+    validateSortSpecs(
+      resolveCatalogEndpointSorts(capability, endpoint),
       `endpoint '${endpoint.id}'`,
     );
   }
@@ -394,7 +489,7 @@ function validatePage(page: RequestPage | undefined, traceId?: string): void {
 
 function validateSort(
   sort: RequestSort | undefined,
-  endpoint: CatalogEndpoint,
+  effectiveSorts: readonly import("./types").SortSpec[],
   traceId?: string,
 ): void {
   if (!sort) {
@@ -408,7 +503,7 @@ function validateSort(
     traceId,
   );
 
-  const endpointSorts = asArray(endpoint.sorts);
+  const endpointSorts = effectiveSorts;
   if (endpointSorts.length === 0) {
     return;
   }
@@ -498,7 +593,10 @@ function validateCatalogRequest(
   }
 
   validatePage(request.page, traceId);
-  validateSort(request.sort, endpoint, traceId);
+  const effectiveSorts =
+    index?.catalogSortsByEndpointID.get(request.catalogID) ??
+    resolveCatalogEndpointSorts(capability, endpoint);
+  validateSort(request.sort, effectiveSorts, traceId);
 
   const effectiveFilters =
     index?.catalogFiltersByEndpointID.get(request.catalogID) ??

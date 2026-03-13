@@ -109,7 +109,12 @@ export interface FilterSpec {
 
 export interface SortSpec {
   key: string;
+  label?: string;
+  description?: string;
+  group?: string;
+  aliases?: string[];
   directions: SortDirection[];
+  defaultDirection?: SortDirection;
   [key: string]: unknown;
 }
 
@@ -120,6 +125,7 @@ export interface CatalogEndpoint {
   name: string;
   mediaTypes: MediaType[];
   filterSetRefs?: string[];
+  sortSetRefs?: string[];
   filters?: FilterSpec[];
   paging?: Paging;
   sorts?: SortSpec[];
@@ -138,6 +144,7 @@ export interface PluginCatalogEndpoint {
 export interface CatalogCapability {
   kind: "catalog";
   filterSets?: Record<string, FilterSpec[]>;
+  sortSets?: Record<string, SortSpec[]>;
   endpoints: CatalogEndpoint[];
   [key: string]: unknown;
 }
@@ -556,7 +563,11 @@ export interface ManifestIndex {
     Partial<Record<ResourceKind, Capability>>
   >;
   readonly catalogEndpointByID: ReadonlyMap<string, CatalogEndpoint>;
-  readonly catalogFiltersByEndpointID: ReadonlyMap<string, readonly FilterSpec[]>;
+  readonly catalogFiltersByEndpointID: ReadonlyMap<
+    string,
+    readonly FilterSpec[]
+  >;
+  readonly catalogSortsByEndpointID: ReadonlyMap<string, readonly SortSpec[]>;
   readonly pluginCatalogEndpointByID: ReadonlyMap<
     string,
     PluginCatalogEndpoint

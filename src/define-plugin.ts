@@ -10,6 +10,7 @@ import {
   type PluginInfo,
   type PluginKindRef,
   type SchemaVersion,
+  type SortSpec,
   type SupportedTransport,
 } from "./types";
 import type {
@@ -23,6 +24,7 @@ import { ProtocolError } from "./errors";
 
 interface CatalogResource<TSettings extends Record<string, SettingPrimitive>> {
   filterSets?: Record<string, FilterSpec[]>;
+  sortSets?: Record<string, SortSpec[]>;
   endpoints: CatalogEndpoint[];
   handler: PluginHandler<"catalog", TSettings>;
 }
@@ -95,6 +97,9 @@ export function definePlugin<
       kind: "catalog",
       ...(resources.catalog.filterSets
         ? { filterSets: resources.catalog.filterSets }
+        : {}),
+      ...(resources.catalog.sortSets
+        ? { sortSets: resources.catalog.sortSets }
         : {}),
       endpoints: resources.catalog.endpoints,
     });

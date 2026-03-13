@@ -19,7 +19,7 @@ npm i @streamfox/plugin-sdk
 ## Quick Start
 
 ```ts
-import { definePlugin, filters, serve } from "@streamfox/plugin-sdk";
+import { definePlugin, filters, sorts, serve } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
@@ -89,7 +89,8 @@ Resource routes use one HTTP style:
 
 Examples:
 
-- `/catalog/movie/popular?genre=Action&year=2024&locale=el-GR&page=0&pageSize=20&sortKey=popularity&sortDirection=desc`
+- `/catalog/movie/browse?genre=action&year=2024&locale=el-GR&page=0&pageSize=20&orderBy=popular`
+- `/catalog/movie/browse?orderBy=rating&order=asc`
 - `/meta/movie/tt0133093?locale=el-GR&regionCode=GR`
 - `/stream/movie/tt0133093?videoID=trailer&startPositionSeconds=123&networkProfile=wifi`
 - `/subtitles/movie/tt0133093?videoHash=abc123&videoSize=1234567&filename=matrix.mkv&languagePreferences=en,el`
@@ -102,14 +103,17 @@ Legacy structured query params such as `request`, `schemaVersion`, `context`, `e
 Catalog filters support:
 
 - reusable `filterSets` shared across endpoints
+- reusable `sortSets` shared across endpoints
 - richer filter metadata for UI and docs
-- `filters.*` helpers for authoring plain manifest-compatible filter specs
+- richer sort metadata for UI and docs
+- `filters.*` and `sorts.*` helpers for authoring plain manifest-compatible specs
 - query alias normalization through `options[].aliases`
+- ordering aliases through `orderBy`
 
 Example:
 
 ```ts
-import { definePlugin, filters } from "@streamfox/plugin-sdk";
+import { definePlugin, filters, sorts } from "@streamfox/plugin-sdk";
 
 const plugin = definePlugin({
   plugin: {
@@ -137,12 +141,27 @@ const plugin = definePlugin({
           }),
         ],
       },
+      sortSets: {
+        browseSorts: [
+          sorts.desc("popularity", {
+            label: "Popular",
+            aliases: ["popular"],
+          }),
+          sorts.choice("rating", {
+            label: "Top Rated",
+            aliases: ["top-rated"],
+            directions: ["descending", "ascending"],
+            defaultDirection: "descending",
+          }),
+        ],
+      },
       endpoints: [
         {
-          id: "discover",
-          name: "Discover",
+          id: "browse",
+          name: "Browse",
           mediaTypes: ["movie"],
           filterSetRefs: ["commonCatalogFilters"],
+          sortSetRefs: ["browseSorts"],
           filters: [filters.range("year")],
         },
       ],
@@ -152,10 +171,12 @@ const plugin = definePlugin({
 });
 ```
 
-Prefer semantic endpoint IDs such as `discover`, `popular`, and `search`. Keep variable filters in the query string:
+Prefer semantic endpoint IDs such as `browse`, `discover`, and `search`. Keep variable controls in the query string:
 
-- `/catalog/movie/discover?language=ja`
-- `/catalog/movie/discover?year=2024`
+- `/catalog/movie/browse?language=ja`
+- `/catalog/movie/browse?year=2024`
+- `/catalog/movie/browse?query=matrix`
+- `/catalog/movie/browse?orderBy=popular`
 
 ## Custom Frontends
 
