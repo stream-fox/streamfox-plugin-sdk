@@ -276,6 +276,109 @@ describe("response parity", () => {
 
     expect(() => validateResponse("meta", invalid)).toThrow(ProtocolError);
   });
+
+  it("accepts and validates similarItems on meta responses", () => {
+    const response = fixture<ResourceResponseMap["meta"]>(
+      "response",
+      "response_meta_valid",
+    );
+
+    if (response.item) {
+      response.item.similarItems = [
+        {
+          id: "tt0000002",
+          mediaType: "movie",
+          title: "Big Buck Bunny 2",
+        },
+      ];
+    }
+
+    expect(() => validateResponse("meta", response)).not.toThrow();
+
+    if (response.item?.similarItems?.[0]) {
+      response.item.similarItems[0].title = "";
+    }
+
+    expect(() => validateResponse("meta", response)).toThrow(ProtocolError);
+  });
+
+  it("accepts rich media detail metadata and rejects invalid rich fields", () => {
+    const response = fixture<ResourceResponseMap["meta"]>(
+      "response",
+      "response_meta_valid",
+    );
+
+    if (!response.item) {
+      throw new Error("expected meta fixture item");
+    }
+
+    response.item.summary.logoURL = "https://cdn.example.com/logo.png";
+    response.item.summary.releasedAt = "2024-01-10T00:00:00.000Z";
+    response.item.summary.background = "https://cdn.example.com/background.png";
+    response.item.summary.runtime = "90 min";
+    response.item.summary.slug = "movie/big-buck-bunny";
+    response.item.summary.imdbRating = 6.4;
+    response.item.summary.popularity = 0.82;
+    response.item.summary.sourceRatings = [
+      { provider: "imdb", rating: 6.4 },
+      { provider: "streamfox", rating: 6.8 },
+    ];
+
+    response.item.background = "https://cdn.example.com/background.png";
+    response.item.releasedAt = "2024-01-10T00:00:00.000Z";
+    response.item.dvdReleaseAt = "2024-02-10T00:00:00.000Z";
+    response.item.logoURL = "https://cdn.example.com/logo.png";
+    response.item.runtime = "90 min";
+    response.item.language = "English";
+    response.item.country = "Netherlands";
+    response.item.awards = "Open movie showcase";
+    response.item.slug = "movie/big-buck-bunny";
+    response.item.imdbRating = 6.4;
+    response.item.popularity = 0.82;
+    response.item.popularityBySource = { streamfox: 0.82, imdb: 0.76 };
+    response.item.sourceRatings = [
+      { provider: "imdb", rating: 6.4 },
+      { provider: "streamfox", rating: 6.8 },
+    ];
+    response.item.cast = [
+      { name: "Big Buck Bunny", character: "Hero" },
+      { name: "Narrator", role: "Voice" },
+    ];
+    response.item.directors = [{ name: "Sacha Goedegebure" }];
+    response.item.writers = [{ name: "Sacha Goedegebure" }];
+    response.item.behaviorHints = {
+      defaultVideoId: "video-1",
+      hasScheduledVideos: false,
+    };
+    response.item.defaultVideoID = "video-1";
+    response.item.videos = [
+      {
+        id: "video-1",
+        title: "Main video",
+        releasedAt: "2024-01-10T00:00:00.000Z",
+        firstAiredAt: "2024-01-10T00:00:00.000Z",
+        rating: 6.4,
+        streams: [],
+      },
+    ];
+
+    expect(() => validateResponse("meta", response)).not.toThrow();
+
+    response.item.popularity = -1;
+    expect(() => validateResponse("meta", response)).toThrow(ProtocolError);
+    response.item.popularity = 0.82;
+
+    response.item.cast = [{ name: "" }];
+    expect(() => validateResponse("meta", response)).toThrow(ProtocolError);
+    response.item.cast = [{ name: "Big Buck Bunny", character: "Hero" }];
+
+    response.item.sourceRatings = [{ provider: "", rating: 6.4 }];
+    expect(() => validateResponse("meta", response)).toThrow(ProtocolError);
+    response.item.sourceRatings = [{ provider: "imdb", rating: 6.4 }];
+
+    response.item.behaviorHints = { defaultVideoId: "missing-video" };
+    expect(() => validateResponse("meta", response)).toThrow(ProtocolError);
+  });
 });
 
 describe("schema parser limits", () => {

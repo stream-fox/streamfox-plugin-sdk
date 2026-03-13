@@ -852,14 +852,8 @@ function validatePluginCatalogRequest(
 
 function validateMediaSummary(summary: MediaSummary, traceId?: string): void {
   assertResponse(
-    nonBlank(summary.id?.namespace),
-    "media id namespace cannot be empty",
-    undefined,
-    traceId,
-  );
-  assertResponse(
-    nonBlank(summary.id?.value),
-    "media id value cannot be empty",
+    nonBlank(summary.id),
+    "media id cannot be empty",
     undefined,
     traceId,
   );
@@ -869,6 +863,59 @@ function validateMediaSummary(summary: MediaSummary, traceId?: string): void {
     undefined,
     traceId,
   );
+  validateOptionalNonBlankString(
+    summary.yearLabel,
+    "summary.yearLabel",
+    traceId,
+  );
+  validateOptionalNonBlankString(
+    summary.background,
+    "summary.background",
+    traceId,
+  );
+  validateOptionalNonBlankString(summary.runtime, "summary.runtime", traceId);
+  validateOptionalDateString(summary.releasedAt, "summary.releasedAt", traceId);
+  validateOptionalNonNegativeNumber(
+    summary.imdbRating,
+    "summary.imdbRating",
+    traceId,
+  );
+  validateOptionalNonNegativeNumber(
+    summary.popularity,
+    "summary.popularity",
+    traceId,
+  );
+  if (summary.sourceRatings !== undefined) {
+    assertResponse(
+      Array.isArray(summary.sourceRatings),
+      "summary.sourceRatings must be an array",
+      undefined,
+      traceId,
+    );
+    for (const [index, sourceRating] of summary.sourceRatings.entries()) {
+      validateSourceRating(
+        sourceRating,
+        `summary.sourceRatings[${index}]`,
+        traceId,
+      );
+    }
+  }
+  if (summary.logoURL !== undefined) {
+    assertResponse(
+      nonBlank(summary.logoURL),
+      "summary.logoURL cannot be blank",
+      undefined,
+      traceId,
+    );
+  }
+  if (summary.slug !== undefined) {
+    assertResponse(
+      nonBlank(summary.slug),
+      "summary.slug cannot be blank",
+      undefined,
+      traceId,
+    );
+  }
 }
 
 function validateVideoUnit(video: VideoUnit, traceId?: string): void {
@@ -884,12 +931,131 @@ function validateVideoUnit(video: VideoUnit, traceId?: string): void {
     undefined,
     traceId,
   );
+  validateOptionalDateString(video.releasedAt, "video.releasedAt", traceId);
+  validateOptionalDateString(video.firstAiredAt, "video.firstAiredAt", traceId);
+  validateOptionalNonNegativeNumber(video.rating, "video.rating", traceId);
   for (const stream of asArray(video.streams)) {
     validateStreamSource(stream, traceId);
   }
   for (const trailer of asArray(video.trailers)) {
     validateStreamSource(trailer, traceId);
   }
+}
+
+function validateOptionalDateString(
+  value: unknown,
+  fieldName: string,
+  traceId?: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertResponse(
+    typeof value === "string" && nonBlank(value),
+    `${fieldName} must be a non-empty string`,
+    undefined,
+    traceId,
+  );
+  assertResponse(
+    !Number.isNaN(Date.parse(value)),
+    `${fieldName} must be a valid date string`,
+    undefined,
+    traceId,
+  );
+}
+
+function validateOptionalNonBlankString(
+  value: unknown,
+  fieldName: string,
+  traceId?: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertResponse(
+    typeof value === "string" && nonBlank(value),
+    `${fieldName} must be a non-empty string`,
+    undefined,
+    traceId,
+  );
+}
+
+function validateOptionalNonNegativeNumber(
+  value: unknown,
+  fieldName: string,
+  traceId?: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertResponse(
+    typeof value === "number" && Number.isFinite(value) && value >= 0,
+    `${fieldName} must be a finite non-negative number`,
+    undefined,
+    traceId,
+  );
+}
+
+function validatePersonCredit(
+  person: unknown,
+  fieldName: string,
+  traceId?: string,
+): void {
+  assertResponse(
+    isRecord(person),
+    `${fieldName} must be an object`,
+    undefined,
+    traceId,
+  );
+
+  assertResponse(
+    nonBlank(person.name),
+    `${fieldName}.name cannot be blank`,
+    undefined,
+    traceId,
+  );
+
+  for (const key of ["role", "character", "photoURL", "externalURL"] as const) {
+    const value = person[key];
+    if (value !== undefined) {
+      assertResponse(
+        typeof value === "string" && nonBlank(value),
+        `${fieldName}.${key} cannot be blank`,
+        undefined,
+        traceId,
+      );
+    }
+  }
+}
+
+function validateSourceRating(
+  value: unknown,
+  fieldName: string,
+  traceId?: string,
+): void {
+  assertResponse(
+    isRecord(value),
+    `${fieldName} must be an object`,
+    undefined,
+    traceId,
+  );
+  assertResponse(
+    nonBlank(value.provider),
+    `${fieldName}.provider cannot be blank`,
+    undefined,
+    traceId,
+  );
+  assertResponse(
+    typeof value.rating === "number" &&
+      Number.isFinite(value.rating) &&
+      value.rating >= 0,
+    `${fieldName}.rating must be a finite non-negative number`,
+    undefined,
+    traceId,
+  );
 }
 
 function validateStringMap(
@@ -1170,6 +1336,87 @@ function validateMetaResponse(
 
   const detail = item as MediaDetail;
   validateMediaSummary(detail.summary, traceId);
+  validateOptionalNonBlankString(detail.background, "item.background", traceId);
+  validateOptionalDateString(detail.releasedAt, "item.releasedAt", traceId);
+  validateOptionalDateString(detail.dvdReleaseAt, "item.dvdReleaseAt", traceId);
+  validateOptionalNonBlankString(detail.runtime, "item.runtime", traceId);
+  validateOptionalNonBlankString(detail.language, "item.language", traceId);
+  validateOptionalNonBlankString(detail.country, "item.country", traceId);
+  validateOptionalNonBlankString(detail.awards, "item.awards", traceId);
+  validateOptionalNonBlankString(detail.website, "item.website", traceId);
+  validateOptionalNonNegativeNumber(
+    detail.imdbRating,
+    "item.imdbRating",
+    traceId,
+  );
+  validateOptionalNonNegativeNumber(
+    detail.popularity,
+    "item.popularity",
+    traceId,
+  );
+  if (detail.sourceRatings !== undefined) {
+    assertResponse(
+      Array.isArray(detail.sourceRatings),
+      "item.sourceRatings must be an array",
+      undefined,
+      traceId,
+    );
+    for (const [index, sourceRating] of detail.sourceRatings.entries()) {
+      validateSourceRating(
+        sourceRating,
+        `item.sourceRatings[${index}]`,
+        traceId,
+      );
+    }
+  }
+  if (detail.logoURL !== undefined) {
+    assertResponse(
+      nonBlank(detail.logoURL),
+      "item.logoURL cannot be blank",
+      undefined,
+      traceId,
+    );
+  }
+  if (detail.slug !== undefined) {
+    assertResponse(
+      nonBlank(detail.slug),
+      "item.slug cannot be blank",
+      undefined,
+      traceId,
+    );
+  }
+
+  if (detail.popularityBySource !== undefined) {
+    assertResponse(
+      isRecord(detail.popularityBySource),
+      "item.popularityBySource must be an object",
+      undefined,
+      traceId,
+    );
+    for (const [source, value] of Object.entries(detail.popularityBySource)) {
+      assertResponse(
+        nonBlank(source),
+        "item.popularityBySource cannot contain blank source names",
+        undefined,
+        traceId,
+      );
+      validateOptionalNonNegativeNumber(
+        value,
+        `item.popularityBySource.${source}`,
+        traceId,
+      );
+    }
+  }
+
+  for (const [fieldName, people] of [
+    ["item.cast", detail.cast],
+    ["item.directors", detail.directors],
+    ["item.writers", detail.writers],
+  ] as const) {
+    for (const person of asArray(people)) {
+      validatePersonCredit(person, fieldName, traceId);
+    }
+  }
 
   const videos = asArray(detail.videos);
   for (const video of videos) {
@@ -1178,6 +1425,46 @@ function validateMetaResponse(
 
   for (const trailer of asArray(detail.trailers)) {
     validateStreamSource(trailer, traceId);
+  }
+
+  for (const similarItem of asArray(detail.similarItems)) {
+    validateMediaSummary(similarItem, traceId);
+  }
+
+  if (detail.behaviorHints !== undefined) {
+    assertResponse(
+      isRecord(detail.behaviorHints),
+      "item.behaviorHints must be an object",
+      undefined,
+      traceId,
+    );
+    if (detail.behaviorHints.defaultVideoId !== undefined) {
+      assertResponse(
+        detail.behaviorHints.defaultVideoId === null ||
+          nonBlank(detail.behaviorHints.defaultVideoId),
+        "behaviorHints.defaultVideoId cannot be blank",
+        undefined,
+        traceId,
+      );
+      if (videos.length > 0 && detail.behaviorHints.defaultVideoId !== null) {
+        assertResponse(
+          videos.some(
+            (video) => video.id === detail.behaviorHints?.defaultVideoId,
+          ),
+          "behaviorHints.defaultVideoId must reference an existing video id",
+          undefined,
+          traceId,
+        );
+      }
+    }
+    if (detail.behaviorHints.hasScheduledVideos !== undefined) {
+      assertResponse(
+        typeof detail.behaviorHints.hasScheduledVideos === "boolean",
+        "behaviorHints.hasScheduledVideos must be a boolean",
+        undefined,
+        traceId,
+      );
+    }
   }
 
   if (detail.defaultVideoID !== undefined) {

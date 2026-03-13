@@ -119,7 +119,18 @@ export interface SortSpec {
   [key: string]: unknown;
 }
 
-export type MetaInclude = "videos" | "links" | "genres" | "cast" | "ratings";
+export type MetaInclude =
+  | "videos"
+  | "links"
+  | "genres"
+  | "cast"
+  | "directors"
+  | "writers"
+  | "trailers"
+  | "awards"
+  | "popularity"
+  | "behaviorHints"
+  | "similarItems";
 
 export interface CatalogEndpoint {
   id: string;
@@ -343,12 +354,6 @@ export interface PluginCatalogRequest {
   [key: string]: unknown;
 }
 
-export interface ContentID {
-  namespace: string;
-  value: string;
-  [key: string]: unknown;
-}
-
 export interface LinkRef {
   name: string;
   url: string;
@@ -417,26 +422,58 @@ export interface StreamSource {
 }
 
 export interface MediaSummary {
-  id: ContentID;
+  id: string;
   mediaType: MediaType;
   title: string;
   year?: number;
+  yearLabel?: string;
   poster?: string;
+  background?: string;
+  runtime?: string;
   genres?: string[];
   rating?: string;
+  imdbRating?: number;
+  sourceRatings?: SourceRating[];
   synopsis?: string;
   links?: LinkRef[];
+  logoURL?: string;
+  releasedAt?: string;
+  slug?: string;
+  popularity?: number;
+  [key: string]: unknown;
+}
+
+export interface PersonCredit {
+  name: string;
+  role?: string;
+  character?: string;
+  photoURL?: string;
+  externalURL?: string;
+  [key: string]: unknown;
+}
+
+export interface SourceRating {
+  provider: string;
+  rating: number;
+  [key: string]: unknown;
+}
+
+export interface MediaBehaviorHints {
+  defaultVideoId?: string | null;
+  hasScheduledVideos?: boolean;
   [key: string]: unknown;
 }
 
 export interface VideoUnit {
   id: string;
   title: string;
-  released?: string;
+  releasedAt?: string;
+  firstAiredAt?: string;
   thumbnail?: string;
   available?: boolean;
   season?: number;
   episode?: number;
+  rating?: number;
   overview?: string;
   streams?: StreamSource[];
   trailers?: StreamSource[];
@@ -446,15 +483,27 @@ export interface VideoUnit {
 export interface MediaDetail {
   summary: MediaSummary;
   background?: string;
-  logo?: string;
+  releasedAt?: string;
+  dvdReleaseAt?: string;
+  logoURL?: string;
   runtime?: string;
   language?: string;
   country?: string;
   awards?: string;
   website?: string;
+  slug?: string;
+  popularity?: number;
+  popularityBySource?: Record<string, number>;
+  imdbRating?: number;
+  sourceRatings?: SourceRating[];
+  cast?: PersonCredit[];
+  directors?: PersonCredit[];
+  writers?: PersonCredit[];
   videos?: VideoUnit[];
   defaultVideoID?: string;
   trailers?: StreamSource[];
+  similarItems?: MediaSummary[];
+  behaviorHints?: MediaBehaviorHints;
   [key: string]: unknown;
 }
 

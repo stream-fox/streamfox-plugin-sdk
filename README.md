@@ -180,6 +180,76 @@ Prefer semantic endpoint IDs such as `browse`, `discover`, and `search`. Keep va
 - `/catalog/movie/browse?query=matrix`
 - `/catalog/movie/browse?orderBy=popular`
 
+## Rich Media Details
+
+`MediaSummary` stays lightweight for browse/cards, but supports a few presentation fields:
+
+- `background`
+- `runtime`
+- `yearLabel`
+- `logoURL`
+- `releasedAt`
+- `slug`
+- `imdbRating`
+- `sourceRatings`
+- `popularity`
+
+`MediaDetail` is the richer app-detail model and supports:
+
+- `releasedAt`
+- `dvdReleaseAt`
+- `logoURL`
+- `language`
+- `country`
+- `awards`
+- `slug`
+- `imdbRating`
+- `sourceRatings`
+- `popularity`
+- `popularityBySource`
+- `cast`, `directors`, `writers`
+- `behaviorHints`
+- `videos`
+- `trailers`
+- `similarItems`
+
+`behaviorHints` follows the Cinemeta-style shape:
+
+```ts
+behaviorHints?: {
+  defaultVideoId?: string | null;
+  hasScheduledVideos?: boolean;
+}
+```
+
+Video entries support both:
+
+- `releasedAt`: generic availability date
+- `firstAiredAt`: schedule/broadcast date for upcoming-episode UX
+- `rating`: optional video/episode rating
+
+There is no separate `trailerStreams` field; trailers are represented only through `trailers`.
+
+## Single ID Model
+
+StreamFox uses one `id: string` field everywhere:
+
+- `MediaSummary.id`
+- `MediaDetail.summary.id`
+- `similarItems[].id`
+- `VideoUnit.id`
+
+ID semantics depend on the entity:
+
+- media/title IDs identify the title itself, for example `tt0133093`
+- video IDs identify the video resource itself, for example `main` or `tt8599532:1:4`
+
+Recommended episodic video ID format:
+
+- `{parentMediaID}:{season}:{episode}`
+
+`defaultVideoID` always points to one `videos[].id`.
+
 ## Custom Frontends
 
 There are two supported ways to own the installer/frontend experience:

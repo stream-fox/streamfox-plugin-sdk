@@ -100,7 +100,10 @@ Helper builders are exported from the SDK:
 ```ts
 {
   mediaTypes: MediaType[];
-  includes?: ("videos"|"links"|"genres"|"cast"|"ratings")[];
+  includes?: (
+    "videos"|"links"|"genres"|"cast"|"directors"|"writers"|
+    "trailers"|"awards"|"popularity"|"behaviorHints"|"similarItems"
+  )[];
   handler: PluginHandler<"meta">;
 }
 ```
@@ -178,11 +181,69 @@ Validation rule: `proxyHeaders` requires `notWebReady: true`.
 
 `MediaDetail` supports:
 
+- `releasedAt?: string`
+- `dvdReleaseAt?: string`
+- `logoURL?: string`
+- `slug?: string`
+- `language?: string`
+- `country?: string`
+- `awards?: string`
+- `popularity?: number`
+- `popularityBySource?: Record<string, number>`
+- `imdbRating?: number`
+- `sourceRatings?: Array<{ provider: string; rating: number }>`
+- `cast?: Array<PersonCredit>`
+- `directors?: Array<PersonCredit>`
+- `writers?: Array<PersonCredit>`
 - `defaultVideoID?: string`
+- `behaviorHints?: { defaultVideoId?: string | null; hasScheduledVideos?: boolean }`
 - `trailers?: StreamSource[]`
-- `videos?: Array<VideoUnit>` where each `VideoUnit` also supports `trailers?: StreamSource[]`
+- `similarItems?: MediaSummary[]`
+- `videos?: Array<VideoUnit>` where each `VideoUnit` also supports:
+  - `releasedAt?: string`
+  - `firstAiredAt?: string`
+  - `rating?: number`
+  - `trailers?: StreamSource[]`
+
+`MediaSummary` stays lean, but also supports lightweight presentation fields:
+
+- `background?: string`
+- `runtime?: string`
+- `yearLabel?: string`
+- `logoURL?: string`
+- `releasedAt?: string`
+- `slug?: string`
+- `imdbRating?: number`
+- `sourceRatings?: Array<{ provider: string; rating: number }>`
+- `popularity?: number`
+
+`PersonCredit`:
+
+- `name: string`
+- `role?: string`
+- `character?: string`
+- `photoURL?: string`
+- `externalURL?: string`
 
 Validation rule: if `videos` is non-empty and `defaultVideoID` is set, it must match one `videos[].id`.
+
+## Single ID Model
+
+Use one `id: string` field everywhere:
+
+- `MediaSummary.id`
+- `MediaDetail.summary.id`
+- `similarItems[].id`
+- `VideoUnit.id`
+
+ID semantics depend on the entity:
+
+- media/title IDs identify the title itself, for example `tt0133093`
+- video IDs identify the video resource itself, for example `main` or `tt8599532:1:4`
+
+Recommended episodic video ID format:
+
+- `{parentMediaID}:{season}:{episode}`
 
 ## Plugin Catalog Extensions
 
